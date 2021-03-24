@@ -1,0 +1,464 @@
+﻿@model WFMPCP.Model.SummaryOverAllExcessDeficitViews
+@{
+	ViewBag.Title = "WFMPCP | Excess Deficit | Summary(Over All)";
+	//Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@section specificPluginStyles{
+<link rel="stylesheet" href="@Url.Content( "~/assets/css/jquery-ui.min.css" )" />
+<link rel="stylesheet" href="@Url.Content( "~/assets/css/bootstrap-datepicker3.min.css" )" />
+<link rel="stylesheet" href="@Url.Content( "~/assets/css/ui.jqgrid.min.css" )" />
+<link href="@Url.Content("~/chartjs/node_modules/chart.js/dist/Chart.min.css")" rel="stylesheet" />
+<link href="@Url.Content("~/chartjs/node_modules/chart.js/dist/Chart.min.css")" rel="stylesheet" />
+}
+
+<!---------------------------------------------------------------->
+<div class="row">
+	<div class="col-xs-12">
+		<div>
+			&nbsp;
+		</div>
+	</div>
+</div>
+<div class="row">
+	<div class="col-xs-2">
+		<div class="input-group input-group-sm">
+			<select class="form-control" id="ddlMonths" style="width:200px; z-index:999;" tabindex="2">
+				<option value="0">[Select Month]</option>
+				<option value="01">January</option>
+				<option value="02">February</option>
+				<option value="03">March</option>
+				<option value="04">April</option>
+				<option value="05">May</option>
+				<option value="06">June</option>
+				<option value="07">July</option>
+				<option value="08">August</option>
+				<option value="09">September</option>
+				<option value="10">October</option>
+				<option value="11">November</option>
+				<option value="12">November</option>
+			</select>
+		</div>
+	</div>
+	<div class="col-xs-2">
+		<div class="input-group input-group-sm">
+			<select class="form-control" id="ddlYear" style="width:200px; z-index:999;" tabindex="3">
+				<option value="">[Select Year]</option>
+				@if (Model.MinYear > 0 && Model.MaxYear > 0)
+				{
+					for (var i = Model.MinYear; i <= Model.MaxYear; i++)
+					{
+						<option value="@i">@i</option>
+					}
+				}
+			</select>
+		</div>
+	</div>
+	<div class="cols-xs-2">
+		<div>
+			<button type="button" id="btnGenerate" class="btn btn-sm btn-primary" tabindex="5">
+				<i class="ace-icon fa fa-check"></i>
+				Generate
+			</button>
+		</div>
+	</div>
+</div><br />
+<div>&nbsp;</div>
+@{Html.RenderPartial("~/Views/ExcessDeficit/_SiteLineChartSummaryOverall.cshtml");}
+
+<div class="hr hr-16 hr-dotted"></div>
+
+@{Html.RenderPartial("~/Views/ExcessDeficit/_CampaignLineChartSummaryOverall.cshtml");}
+
+@Html.Action( "_DivLoading", "Common" )
+
+@section specificScripts{
+    <script src="@Url.Content("~/assets/js/bootstrap-datepicker.min.js")"></script>
+    <script src="@Url.Content("~/assets/js/jquery-ui.min.js")"></script>
+    <script src="@Url.Content("~/assets/js/jquery.ui.touch-punch.min.js")"></script>
+    <script src="@Url.Content("~/assets/js/jquery.jqGrid.min.js")"></script>
+    <script src="@Url.Content("~/assets/js/grid.locale-en.js")"></script>
+    <script src="@Url.Content("~/assets/js/jquery.maskedinput.min.js")"></script>
+    <script src="@Url.Content( "~/Scripts/jquery.validate.min.js" )"></script>
+    <script src="@Url.Content( "~/Scripts/jquery.validate.unobtrusive.js" )"></script>
+    <script src="@Url.Content( "~/Scripts/jquery.unobtrusive-ajax.min.js" )"></script>
+    <script src="@Url.Content("~/Scripts/pageJs/AHCManagement.js")"></script>
+    <script src="@Url.Content("~/Scripts/pageJs/AHCView.js")"></script>
+	<script src="@Url.Content("~/chartjs/node_modules/chart.js/dist/Chart.bundle.js")"></script>
+	<script src="@Url.Content("~/chartjs/node_modules/utils.js")"></script><!--chart color-->
+}
+
+@section scripts{
+    <script>
+		var myChart;
+		var presets = window.chartColors;
+		var utils = Samples.utils;
+
+		var siteSummaryUrl = '@Url.Action( "GenerateOverallSummary", "ExcessDeficit")';
+
+        $('#txtYear').on('keypress keyup blur', function (event) {
+            common.AllowInt(event, '#txtYear');
+        });
+
+        $('#btnGenerate').click(function () {
+            var month = $('#ddlMonths').val();
+            var year = $('#ddlYear').val();
+            var msg = '';
+            var startMonth = '';
+
+            if (month != '0') {
+                if (year.trim() == '')
+                    msg = 'Year is required.';
+                else
+                    startMonth = year + '-' + month + '-01';
+            }
+
+            if (msg == '') {
+                $('#divLoading').show();
+                //generate
+                var payload = {
+                    "startMonth": startMonth
+                };
+                CreateBarChart(payload, siteSummaryUrl);
+            }
+            else {
+                $.alert({
+                    closeIcon: true,
+                    title: 'WFMPCP | Excess Deficit',
+                    content: msg
+                });
+            }
+
+        });
+
+
+		$(window).on('load', function () {
+			$('#divChartWrapper').html('&nbsp;');
+			$('#divChartWrapper').html('<canvas id="siteOverallChart" style="padding: 0px;margin: auto;display: block; height: 500px;"> </canvas> ');
+			var ctx = $("#siteOverallChart").get(0).getContext("2d");
+			SetupLineChart(ctx, '', '', '', '', '', '', '')
+
+			$('#divChartWrapper_campaign').html('&nbsp;');
+			$('#divChartWrapper_campaign').html('<canvas id="campaignOverallChart" style="padding: 0px;margin: auto;display: block; height: 500px;"> </canvas> ');
+			ctx = $("#campaignOverallChart").get(0).getContext("2d");
+			SetupLineChart(ctx, '', '', '', '', '', '', '')
+
+			$('#divLoading').show();
+			var payload = {
+				"startMonth": ""
+			};
+			CreateBarChart(payload, siteSummaryUrl);
+		});
+
+		function CreateBarChart(payload, url) {
+			$.post(url, payload, function (chartData) {
+
+				var sites = "";
+				var siteData = "";
+				var siteData1 = "";
+				var siteData2 = "";
+				var siteData3 = "";
+				var backColors = "";
+				var borderColors = "";
+				var subTotal1 = 0;
+				var subTotal2 = 0;
+				var subTotal3 = 0;
+				var table1 = "";
+				var table2 = "";
+				var table3 = "";
+
+				var total = 0;
+				var total_campaign1 = 0;
+				var total_campaign2 = 0;
+				var total_campaign3 = 0;
+				var ctx;
+
+				//site table header
+				$('#th1').text(chartData.MonthYear1);
+				$('#th2').text(chartData.MonthYear2);
+				$('#th3').text(chartData.MonthYear3);
+
+				//campaign table header
+				$('#th1_campaign').text(chartData.MonthYear1);
+				$('#th2_campaign').text(chartData.MonthYear2);
+				$('#th3_campaign').text(chartData.MonthYear3);
+				
+				//************************
+				//SETUP Site Chart 1,2,3 *
+				//************************
+				var dict = chartData.FirstMonthSite;
+			
+				for (var a in dict) {
+					$.each(dict[a], function (key, value) {
+						if (key == 'Site') 
+							sites += value + ',';
+						else {
+							siteData1 += Math.round(value.toFixed(2)) + ',';
+							subTotal1 += Math.round(parseFloat(value.toFixed(2)));
+						}
+					});
+				}
+				dict = chartData.SecondMonthSite;
+				for (var a in dict) {
+					$.each(dict[a], function (key, value) {
+						if (key != 'Site'){
+							siteData2 += Math.round(value.toFixed(2)) + ',';
+							subTotal2 += Math.round(parseFloat(value.toFixed(2)));
+						}
+					});
+				}
+				dict = chartData.ThirdMonthSite;
+				for (var a in dict) {
+					$.each(dict[a], function (key, value) {
+						if (key != 'Site') {
+							siteData3 += Math.round(value.toFixed(2)) + ',';
+							subTotal3 += Math.round(parseFloat(value.toFixed(2)));
+						}
+					});
+				}
+
+				if (sites.trim() != '') {
+					sites = sites.slice(0, -1);
+				}
+				if (siteData1.trim() != '') {
+					siteData1 = siteData1.slice(0, -1);
+
+					$.each(siteData1.split(','), function (key, value) {
+						var site = sites.split(',');
+						
+						if (parseFloat(value) < 0)
+							table1 += '<tr><td style="width:65%;">' + site [key]+ '</td><td style="text-align:center;color:Red;">(' + value.replace('-', '') + ')</td></tr>';
+						else
+							table1 += '<tr><td style="width:65%;">' + site[key] + '</td><td style="text-align:center;">' + value + '</td></tr>';
+					});
+				}
+				if (siteData2.trim() != '') {
+					siteData2 = siteData2.slice(0, -1);
+
+					$.each(siteData2.split(','), function (key, value) {
+						var site = sites.split(',');
+
+						if (parseFloat(value) < 0)
+							table2 += '<tr><td style="width:65%;">' + site[key] + '</td><td style="text-align:center;color:Red;">(' + value.replace('-', '') + ')</td></tr>';
+						else
+							table2 += '<tr><td style="width:65%;">' + site[key] + '</td><td style="text-align:center;">' + value + '</td></tr>';
+					});
+				}
+				if (siteData3.trim() != '') {
+					siteData3 = siteData3.slice(0, -1);
+
+					$.each(siteData3.split(','), function (key, value) {
+						var site = sites.split(',');
+
+						if (parseFloat(value) < 0)
+							table3 += '<tr><td style="width:65%;">' + site[key] + '</td><td style="text-align:center;color:Red;">(' + value.replace('-', '') + ')</td></tr>';
+						else
+							table3 += '<tr><td style="width:65%;">' + site[key] + '</td><td style="text-align:center;">' + value + '</td></tr>';
+					});
+				}
+
+				$('#tbody1').html(table1);
+				$('#tbody2').html(table2);
+				$('#tbody3').html(table3);
+				$('#divChartWrapper').html('&nbsp;');
+				$('#divChartWrapper').html('<canvas id="siteOverallChart" style="padding: 0px;margin: auto;display: block; height: 500px;"> </canvas> ');
+				var ctx = $("#siteOverallChart").get(0).getContext("2d");
+				SetupLineChart(ctx, sites, siteData1, siteData2, siteData3, chartData.MonthYear1, chartData.MonthYear2, chartData.MonthYear3);
+				//****************************
+				//END SETUP Site Chart 1,2,3 *
+				//****************************
+
+				//*****************
+				// CAMPAIGN CHART *
+				//*****************
+				table1 = "";
+				table2 = "";
+				table3 = "";
+				sites = "";
+				siteData1 = "";
+				siteData2 = "";
+				siteData3 = "";
+				total_campaign1 = 0;
+				total_campaign2 = 0;
+				total_campaign3 = 0;
+
+				dict = chartData.FirstMonthCampaign;
+				for (var a in dict) {
+					$.each(dict[a], function (key, value) {
+						if (key == 'Campaign')
+							sites += value + ',';
+						else {
+							siteData1 += Math.round(value.toFixed(2)) + ',';
+							total_campaign1 += Math.round(parseFloat(value.toFixed(2)));
+						}
+					});
+				}
+				dict = chartData.SecondMonthCampaign;
+				for (var a in dict) {
+					$.each(dict[a], function (key, value) {
+						if (key != 'Campaign'){
+							siteData2 += Math.round(value.toFixed(2)) + ',';
+							total_campaign2 += Math.round(parseFloat(value.toFixed(2)));
+						}
+					});
+				}
+				dict = chartData.ThirdMonthCampaign;
+				for (var a in dict) {
+					$.each(dict[a], function (key, value) {
+						if (key != 'Campaign') {
+							siteData3 += Math.round(value.toFixed(2)) + ',';
+							total_campaign3 += Math.round(parseFloat(value.toFixed(2)));
+						}
+					});
+				}
+				
+				if (sites.trim() != '') {
+					sites = sites.slice(0, -1);
+				}
+				if (siteData1.trim() != '') {
+					siteData1 = siteData1.slice(0, -1);
+
+					$.each(siteData1.split(','), function (key, value) {
+						var site = sites.split(',');
+
+						if (parseFloat(value) < 0)
+							table1 += '<tr><td style="width:65%;">' + site[key] + '</td><td style="text-align:center;color:Red;">(' + value.replace('-', '') + ')</td></tr>';
+						else
+							table1 += '<tr><td style="width:65%;">' + site[key] + '</td><td style="text-align:center;">' + value + '</td></tr>';
+					});
+				}
+				if (siteData2.trim() != '') {
+					siteData2 = siteData2.slice(0, -1);
+
+					$.each(siteData2.split(','), function (key, value) {
+						var site = sites.split(',');
+
+						if (parseFloat(value) < 0)
+							table2 += '<tr><td style="width:65%;">' + site[key] + '</td><td style="text-align:center;color:Red;">(' + value.replace('-', '') + ')</td></tr>';
+						else
+							table2 += '<tr><td style="width:65%;">' + site[key] + '</td><td style="text-align:center;">' + value + '</td></tr>';
+					});
+				}
+				if (siteData3.trim() != '') {
+					siteData3 = siteData3.slice(0, -1);
+
+					$.each(siteData3.split(','), function (key, value) {
+						var site = sites.split(',');
+
+						if (parseFloat(value) < 0)
+							table3 += '<tr><td style="width:65%;">' + site[key] + '</td><td style="text-align:center;color:Red;">(' + value.replace('-', '') + ')</td></tr>';
+						else
+							table3 += '<tr><td style="width:65%;">' + site[key] + '</td><td style="text-align:center;">' + value + '</td></tr>';
+					});
+				}
+
+				$('#tbody1_campaign').html(table1);
+				$('#tbody2_campaign').html(table2);
+				$('#tbody3_campaign').html(table3);
+				$('#divChartWrapper_campaign').html('&nbsp;');
+				$('#divChartWrapper_campaign').html('<canvas id="campaignOverallChart" style="padding: 0px;margin: auto;display: block; height: 500px;"> </canvas> ');
+				var ctx = $("#campaignOverallChart").get(0).getContext("2d");
+				SetupLineChart(ctx, sites, siteData1, siteData2, siteData3, chartData.MonthYear1, chartData.MonthYear2, chartData.MonthYear3);
+
+
+				$('#s1_campaign1').text(total_campaign1);
+				$('#s1Div_campaign1').text(chartData.MonthYear1);
+				
+
+				$('#s1_campaign2').text(total_campaign2);
+				$('#s1Div_campaign2').text(chartData.MonthYear2);
+				
+
+				$('#s1_campaign3').text(total_campaign3);
+				$('#s1Div_campaign3').text(chartData.MonthYear3);
+				//*********************
+				// END CAMPAIGN CHART *
+				//*********************
+
+
+				total = Math.round(parseFloat(subTotal1) + parseFloat(subTotal2) + parseFloat(subTotal3));
+				$('#s1').text(total.toFixed(0));
+
+				$('#divLoading').hide();
+			});
+
+		}
+
+		function SetupLineChart(ctx, chartLabels, month1Data, month2Data, month3Data, label1, label2, label3) {
+			var options = {
+				maintainAspectRatio: false,
+				spanGaps: false,
+				elements: {
+					line: {
+						tension: 0.000001
+					}
+				},
+				scales: {
+					yAxes: [{
+						stacked: true
+					}]
+				},
+				plugins: {
+					filler: {
+						propagate: false
+					},
+					'samples-filler-analyser': {
+						target: 'chart-analyser'
+					}
+				}
+			};
+
+			var color1 = '#' + Math.random().toString(16).substr(-6);
+			var color2 = '#' + Math.random().toString(16).substr(-6)
+			var color3 = '#' + Math.random().toString(16).substr(-6)
+
+			myChart = new Chart(ctx, {
+				type: 'line',
+				//data: dataT,
+				data: {
+					labels: chartLabels.split(','),
+					datasets: [{
+						backgroundColor: utils.transparentize(color1),
+						borderColor: color1,
+						data: month1Data.split(','),
+						label: label1,
+						fill: false
+					},
+					{
+						backgroundColor: utils.transparentize(color2),
+						borderColor: color2,
+						data: month2Data.split(','),
+						label: label2,
+						fill: false
+					},
+					{
+						backgroundColor: utils.transparentize(color3),
+						borderColor: color3,
+						data: month3Data.split(','),
+						label: label3,
+						fill: false
+					}]
+				},
+				options: {
+					maintainAspectRatio: false,
+					spanGaps: false,
+					plugins: {
+						filter: {
+							propagate: false
+						}
+					},
+					scales: {
+						yAxes: [{
+							ticks: {
+								beginAtZero: false
+							}
+						}]
+					}
+				}
+			});
+			myChart.update();
+
+		}
+    </script>
+}
+

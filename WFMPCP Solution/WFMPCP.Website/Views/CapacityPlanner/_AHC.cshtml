@@ -1,0 +1,149 @@
+﻿@model WFMPCP.Model.Web.AHCViews
+
+<!---------------------------------------------------------------->
+<table id="tblPivotHeader" class="table  table-bordered table-hover ">
+    <thead>
+        <tr>
+            @{ var noData = false;
+                var dates = string.Empty;
+            }
+            @if( Model.IsLoadDataGrid )
+            {
+                try
+                {
+                    var ctr = 0;
+                    foreach( var row in Model.Pivot.FirstOrDefault() )
+                    {
+                        if( ctr > 1 )
+                        {
+                            if( row.Key == "Segment" || row.Key == "Datapoint" )
+                            {
+                                <th style="text-align:center;">@row.Key</th>
+                            }
+                            else
+                            {
+                                var date = Convert.ToDateTime( row.Key ).ToString( "MMM dd, yyyy" );
+                                <th style="text-align:center;"><a id="ahref" href="#">@date</a></th>
+
+                            }
+                        }
+                        ctr++;
+                    }
+                }
+                catch
+                {
+                    noData = true;
+                    <th>&nbsp;</th>
+                }
+
+            }
+            else
+            {
+                <th>&nbsp;</th>
+            }
+        </tr>
+
+    </thead>
+    <tbody>
+        @try
+        {
+            if( Model.IsLoadDataGrid )
+            {
+                List<string> colValue = new List<string>();
+                foreach( var row in Model.Pivot )
+                {
+
+                    <tr>
+                        @{long segmentID = 0;
+                            string dtpointid = "";}
+                        @foreach( var column in row )
+                        {
+                            string style = "text-align:center;";
+
+                            if( column.Key.Trim() == "SegmentID" )
+                            {
+                                segmentID = Convert.ToInt64( column.Value );
+                            }
+                            try
+                            {
+                                Convert.ToInt64( column.Value.ToString() );
+                            }
+                            catch { style += "font-weight:bold;"; }
+
+                            if( column.Key.Trim() == "DatapointID" || column.Key.Trim() == "SegmentID" )
+                            {
+                                style += "display:none;";
+                            }
+                            if( column.Key.Trim() == "DatapointID" )
+                            {
+                                dtpointid = column.Value.ToString();
+                            }
+
+                            if( column.Key.Trim() == "Segment" )
+                            {
+                                string colVal = Convert.ToString( segmentID ).Trim();
+                                //string colVal = Convert.ToString( column.Value ).Trim();
+                                colValue.Add( colVal );
+
+                                int segmentCount = colValue.Where( x => x == colVal ).Count();
+                                if( segmentCount == 1 )
+                                {
+                                    int rowCount = Model.Datapoints.Where( x => x.SegmentID == segmentID ).Count();
+                                    <td style="@style" rowspan="@rowCount.ToString()">
+                                        @column.Value
+                                    </td>
+                                }
+                            }
+
+                            if( column.Key.Trim() != "DatapointID" && column.Key.Trim() != "SegmentID" && column.Key.Trim() != "Segment" && column.Key.Trim() != "Datapoint" )
+                            {
+                                style = "text-align:center;";
+                                try
+                                {
+                                    var numValue = Convert.ToDecimal( @column.Value.ToString().Replace( "%", "" ).Trim() );
+                                    if( numValue < 0 )
+                                    {
+                                        style = "text-align:center;font-weight:bold;color:Red;";
+                                    }
+                                    else if( numValue == 0 )
+                                    {
+                                        style = "text-align:center;font-weight:bold;";
+                                    }
+                                }
+                                catch { }
+                                <td style="@style">@column.Value</td>
+                            }
+                            else if( column.Key.Trim() == "Datapoint" )
+                            {
+                                <td style="@style">@Html.Raw(column.Value)</td>
+                            }
+
+                        }
+                    </tr>
+                }
+                
+            }
+            else
+            {
+                <tr>
+                    <td style="font-weight:bold;color:red;">Data is not available.</td>
+                </tr>
+                }
+            }
+        catch
+        {
+            <tr>
+                <td style="font-weight:bold;color:red;">Data is not available.</td>
+            </tr>
+        }
+
+        @if( noData )
+            {
+            <tr>
+                <td style="font-weight:bold;color:red;">Data is not available.</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<!---------------------------------------------------------------->

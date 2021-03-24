@@ -1,0 +1,73 @@
+﻿@model WFMPCP.Model.SummaryOverAllExcessDeficitViews
+
+<table id="simple-table" class="table table-bordered"  cellspacing="0">
+    <thead>
+        <tr>
+            @try
+            {
+                foreach( var row in Model.LobPivot.FirstOrDefault() )
+                {
+                    if( row.Key.Trim().ToLower() != "campaignid" )
+                    {
+                        <th style="text-align:center;">@row.Key</th>
+                    }
+                }
+            }
+            catch
+            {
+                <th style="text-align:center;">&nbsp;</th>
+            }
+        </tr>
+    </thead>
+
+    <tbody>
+        @try
+        {
+            foreach( var row in Model.LobPivot )
+            {
+                <tr>
+                    @{ var style = "";
+                        var value = "";}
+                    @foreach( var column in row )
+                    {
+                        var campaignID = "0";
+                        if( column.Key.Trim().ToLower() == "campaignid" )
+                        {
+                            campaignID = column.Value.ToString();
+                        }
+
+                        if( column.Key.Trim().ToLower() != "campaignid" )
+                        {
+                            if( column.Key.Trim().ToLower() == "lob" )
+                            {
+                                style = "font-weight: bold;";
+                                value = column.Value.ToString();
+                            }
+                            else
+                            {
+                                style = "text-align:center;";
+                                double init = Math.Ceiling( Convert.ToDouble( column.Value ) );
+
+                                if( init < 0 )
+                                {
+                                    style = "text-align:center;color:Red;";
+                                    value = string.Format( "({0})", init.ToString().Replace( "-", "" ) );
+                                }
+                                else
+                                {
+                                    value = init.ToString();
+                                }
+                            }
+                            <td style="@style">@value</td>
+                        }
+                    }
+                </tr>
+
+            }
+        }
+        catch { }
+    </tbody>
+</table>
+
+
+

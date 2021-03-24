@@ -1,0 +1,125 @@
+﻿@model WFMPCP.Model.Web.LoginView
+@{ Layout = null;}
+@*@Styles.Render("~/Content/jqalertcss")*@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>WFM | PCP</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    @Styles.Render("~/Content/jqalertcss")
+    <link rel="stylesheet" href="@Url.Content("~/assets/css/bootstrap.min.css")" />
+    <!--===============================================================================================-->
+    <link rel="icon" type="image/png" href="@Url.Content("~/assets/Login/images/icons/favicon.ico")" />
+    <!--===============================================================================================-->
+    <link rel="stylesheet" type="text/css" href="@Url.Content("~/assets/Login/fonts/font-awesome-4.7.0/css/font-awesome.min.css")">
+    <!--===============================================================================================-->
+    <link rel="stylesheet" type="text/css" href="@Url.Content("~/assets/Login/fonts/Linearicons-Free-v1.0.0/icon-font.min.css")">
+
+    <link rel="stylesheet" type="text/css" href="@Url.Content("~/assets/Login/css/util.css")">
+    <link rel="stylesheet" type="text/css" href="@Url.Content("~/assets/Login/css/main.css")">
+
+    <!--===============================================================================================-->
+</head>
+<body>
+
+    <div class="limiter">
+        <div class="container-login100" style="background-image: url('@Url.Content("~/assets/Login/images/bg-01.jpg")');">
+            <div class="wrap-login100 p-t-30 p-b-50">
+                <span class="login100-form-title p-b-41" style="">
+                    Workforce Capacity Planner
+                </span>
+                @using (Html.BeginForm("Login", "Account", new { ReturnUrl = ViewBag.ReturnUrl }, FormMethod.Post, new { id = "frmLogin", @class = "login100-form validate-form p-b-33 p-t-5" }))
+                {@Html.AntiForgeryToken()
+                @*<form class="login100-form validate-form p-b-33 p-t-5" onsubmit="return false;">*@
+
+                <div class="wrap-input100 ">
+                    @*<input class="input100" type="text" id="txtUsername" placeholder="User name">*@
+                    @Html.TextBoxFor(m => m.NTLogin, new { @id = "txtUsername", @class = "input100", @maxlength = "50", @placeholder = "NT Login [aa1234567]" })
+                    <span class="focus-input100" data-placeholder="&#xe82a;"></span>
+                </div>
+
+                <div class="wrap-input100 ">
+                    @*<input class="input100" type="password" id="txtPassword" placeholder="Password">*@
+                    @Html.PasswordFor(m => m.Password, new { @id = "txtPassword", @class = "input100", @maxlength = "50", @placeholder = "Password" })
+                    <span class="focus-input100" data-placeholder="&#xe80f;"></span>
+                </div>
+
+                <div class="container-login100-form-btn m-t-32">
+                    <input type="submit" name="btnLogin" id="btnLogin" class="login100-form-btn" value="Login" style="cursor:pointer;" />
+                    @*<button class="login100-form-btn" id="btnLogin">
+                            Login
+                        </button>*@
+                </div>
+
+                @*</form>*@
+            }
+            </div>
+        </div>
+    </div>
+
+
+    @*<div id="dropDownSelect1"></div>*@
+    @*<script src="@Url.Content("~/lib/jquery/dist/jquery.js")"></script>*@
+    <script src="@Url.Content("~/assets/js/jquery-2.1.4.min.js")"></script>
+    <script src="@Url.Content("~/assets/Login/js/main.js")"></script>
+    @Scripts.Render("~/bundles/jqalert")
+    <script src="@Url.Content("~/Scripts/Common.js")"></script>
+    <script type="text/javascript">
+        var urlmsg = '@Request.Params["msg"]';
+        var msg = '';
+
+        if ($.trim(urlmsg)) {
+            $.alert({
+                closeIcon: true,
+                title: 'WFM PCP - Login',
+                content: urlmsg
+            });
+        }
+
+        jQuery.fn.extend({
+            IsValid: function () {
+                var username = $.trim($("#txtUsername").val());
+                //document.getElementById('txtUsrname').value;
+                var password = $.trim($("#txtPassword").val());
+                //document.getElementById('txtPassword').value;
+                var msg = '';
+
+                if (username == '') {
+                    msg += 'NT Login is required <br />';
+                }
+                if (password == '') {
+                    msg += 'Password is required. <br />';
+                }
+
+                if (msg == '') {
+                    return true;
+                }
+                else {
+                    $.alert({
+                        closeIcon: true,
+                        title: 'WFM PCP -  Login',
+                        content: msg
+                    });
+                    return false;
+                }
+            }
+        });
+        $("#frmLogin").submit(function (e) {
+            return $(e).IsValid();
+            e.preventDefault();
+        });
+
+        window.onload = function () {
+            var txtBox = document.getElementById("txtUsername");
+
+            if (txtBox != null) {
+                //txtBox.focus();
+            }
+        };
+    </script>
+
+
+</body>
+</html>

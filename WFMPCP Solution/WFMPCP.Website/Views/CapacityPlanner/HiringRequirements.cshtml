@@ -1,0 +1,151 @@
+﻿@model WFMPCP.Model.Web.AHCViews
+@{
+	ViewBag.Title = "WFMPCP | Hiring Requirements";
+	//Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@section specificPluginStyles{
+    <link rel="stylesheet" href="@Url.Content( "~/assets/css/jquery-ui.min.css" )" />
+    <link rel="stylesheet" href="@Url.Content( "~/assets/css/bootstrap-datepicker3.min.css" )" />
+    <link rel="stylesheet" href="@Url.Content( "~/assets/css/ui.jqgrid.min.css" )" />
+
+}
+
+<!---------------------------------------------------------------->
+<div class="row" style="display:none;">
+    <div class="col-xs-12">
+        &nbsp;
+    </div>
+</div>
+@using( Ajax.BeginForm( "GenerateHiringRequirements", "CapacityPlanner",
+                                                                            new AjaxOptions
+                                                                            {
+                                                                                HttpMethod = "POST",
+                                                                                OnBegin = "return ahcView.ValidateHiringGrid();",
+                                                                                LoadingElementId = "divLoading",
+                                                                                InsertionMode = InsertionMode.Replace,
+                                                                                UpdateTargetId = "tblPivotHeader"
+                                                                            },
+                                                                            new { id = "frmAHC" } ) )
+{
+
+    <div class="row">
+        <div class="col-xs-3">
+            <div>
+                <select class="form-control" id="ddlSites" style="width:200px;" tabindex="2">
+                    <option value="0">[Select Site]</option>
+                    @if( Model.Sites != null )
+                {
+                    foreach( var site in Model.Sites )
+                    {
+                            <option value="@site.ID">@site.Name</option>
+                        }
+                    }
+                </select>
+            </div>
+        </div>
+        <div class="col-xs-3">
+            <div>
+                <select class="form-control" id="ddlCampaigns" style="width:200px;" tabindex="2">
+                    <option value="0">[Select Campaign]</option>
+                </select>
+            </div>
+        </div>
+        <div class="col-xs-3" style="display:none;">
+            <div>
+                <select class="form-control" id="ddlLobs" style="width:200px; z-index:999;" tabindex="2">
+                    <option value="0">[Select LoB]</option>
+                </select>
+                @Html.TextBoxFor( m => m.SiteID, new { @id = "SiteID", @style = "display: none;", value = "0" } )
+                @Html.TextBoxFor( m => m.CampaignID, new { @id = "CampaignID", @style = "display: none;", value = "0" } )
+                @Html.TextBoxFor( m => m.LobID, new { @id = "LobID", @style = "display: none;", value = "0" } )
+            </div>
+        </div>
+        <div class="col-xs-3">
+            &nbsp;
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-xs-12">
+            &nbsp;
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-xs-3">
+            <div class="input-group input-group-sm">
+                @Html.TextBoxFor( m => m.StartDate, new { @id = "txtStart", @class = "form-control", @maxlength = "10", @autocomplete="off" } )
+                <span class="input-group-addon" id="sStart" style="cursor:pointer;">
+                    <i class="ace-icon fa fa-calendar"></i>
+                </span>
+            </div>
+        </div>
+        <div class="col-xs-3">
+            <div class="input-group input-group-sm">
+                @Html.TextBoxFor( m => m.EndDate, new { @id = "txtEnd", @class = "form-control", @maxlength = "10", @autocomplete="off" } )
+                <span class="input-group-addon" id="sEnd" style="cursor:pointer;">
+                    <i class="ace-icon fa fa-calendar"></i>
+                </span>
+            </div>
+        </div>
+        <div >
+            <div>
+                <button type="submit" id="btnGenerate" class="btn btn-sm btn-primary" tabindex="5">
+                    <i class="ace-icon fa fa-check"></i>
+                    Generate
+                </button>
+            </div>
+        </div>
+    </div><br />
+    <div>&nbsp;</div>
+    <div class="row">
+        <div class="col-xs-12">
+            &nbsp;
+        </div>
+    </div>
+    @Html.Action( "_DivLoading", "Common" )
+    <div class="row">
+        <div class="col-xs-12">
+            <div style="overflow-x: scroll;width:100%;" id="divTblTarget">
+                @{Html.RenderPartial( "_HiringRequirements", Model );}
+            </div>
+        </div>
+    </div>
+
+                    }
+@section specificScripts{
+    <script src="@Url.Content("~/assets/js/bootstrap-datepicker.min.js")"></script>
+    <script src="@Url.Content("~/assets/js/jquery-ui.min.js")"></script>
+    <script src="@Url.Content("~/assets/js/jquery.ui.touch-punch.min.js")"></script>
+    <script src="@Url.Content("~/assets/js/jquery.jqGrid.min.js")"></script>
+    <script src="@Url.Content("~/assets/js/grid.locale-en.js")"></script>
+    <script src="@Url.Content("~/assets/js/jquery.maskedinput.min.js")"></script>
+    <script src="@Url.Content( "~/Scripts/jquery.validate.min.js" )"></script>
+    <script src="@Url.Content( "~/Scripts/jquery.validate.unobtrusive.js" )"></script>
+    <script src="@Url.Content( "~/Scripts/jquery.unobtrusive-ajax.min.js" )"></script>
+    <script src="@Url.Content("~/Scripts/pageJs/AHCManagement.js")"></script>
+    <script src="@Url.Content("~/Scripts/pageJs/AHCView.js")"></script>
+}
+
+@section scripts{
+    <script>
+        ahcView.Initialize();
+        ahcManagement.SiteChange('@Url.Action( "GetCampaignBySite", "AssumptionsHeadcountManagement" )');
+        ahcView.LobChange();
+        ahcManagement.CampaignChange('@Url.Action( "GetLoBByCampaign", "AssumptionsHeadcountManagement" )');
+		ahcView.DateRangeFilters();
+
+		$('#sStart').click(function () {
+			ahcView.DateRangeFilters();
+			$('#txtStart').datepicker('show');
+		});
+		$('#sEnd').click(function () {
+			ahcView.DateRangeFilters();
+			$('#txtEnd').datepicker('show');
+		});
+    </script>
+}
+
+
+
+
+

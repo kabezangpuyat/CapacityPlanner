@@ -1,0 +1,160 @@
+﻿@model WFMPCP.Model.SummaryOverAllExcessDeficitViews
+
+@{
+	ViewBag.Title = "WFMPCP | Excess Deficit | Site Monthly Summary";
+	//Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@section specificPluginStyles{
+    <link rel="stylesheet" href="@Url.Content( "~/assets/css/jquery-ui.min.css" )" />
+    <link rel="stylesheet" href="@Url.Content( "~/assets/css/bootstrap-datepicker3.min.css" )" />
+    <link rel="stylesheet" href="@Url.Content( "~/assets/css/ui.jqgrid.min.css" )" />
+
+}
+
+<!---------------------------------------------------------------->
+<div class="row">
+    <div class="col-xs-12">
+        &nbsp;
+    </div>
+</div>
+<div class="row">    
+    <div class="col-xs-3">
+        <div class="input-group input-group-sm">
+            <input type="text" class="form-control" id="txtStart" autocomplete="off" />
+            <span class="input-group-addon" id="sStart" style="cursor:pointer;">
+                <i class="ace-icon fa fa-calendar"></i>
+            </span>
+        </div>
+    </div>
+    <div class="col-xs-3">
+        <div class="input-group input-group-sm">
+            <input type="text" class="form-control" id="txtEnd" autocomplete="off" />
+            <span class="input-group-addon" id="sEnd" style="cursor:pointer;">
+                <i class="ace-icon fa fa-calendar"></i>
+            </span>
+        </div>
+    </div>
+    <div>
+        <div>
+            <button type="button" id="btnGenerate" class="btn btn-sm btn-primary" tabindex="5">
+                <i class="ace-icon fa fa-check"></i>
+                Generate
+            </button>
+        </div>
+    </div>
+</div><br />
+<div class="row" style="display:none;">
+    <div class="col-xs-12">
+        &nbsp;
+    </div>
+</div>
+
+<!--SITE SUMMARY-->
+<div style="overflow-x: scroll;width:100%;" id="divSiteSummaryHTML">
+    @Html.Raw( Model.SiteSummaryHTML )
+</div>
+@Html.Action( "_DivLoading", "Common" )
+
+@section specificScripts{
+    <script src="@Url.Content("~/assets/js/bootstrap-datepicker.min.js")"></script>
+    <script src="@Url.Content("~/assets/js/jquery-ui.min.js")"></script>
+    <script src="@Url.Content("~/assets/js/jquery.ui.touch-punch.min.js")"></script>
+    <script src="@Url.Content("~/assets/js/jquery.jqGrid.min.js")"></script>
+    <script src="@Url.Content("~/assets/js/grid.locale-en.js")"></script>
+    <script src="@Url.Content("~/assets/js/jquery.maskedinput.min.js")"></script>
+    <script src="@Url.Content( "~/Scripts/jquery.validate.min.js" )"></script>
+    <script src="@Url.Content( "~/Scripts/jquery.validate.unobtrusive.js" )"></script>
+    <script src="@Url.Content( "~/Scripts/jquery.unobtrusive-ajax.min.js" )"></script>
+    <script src="@Url.Content("~/Scripts/pageJs/AHCManagement.js")"></script>
+    <script src="@Url.Content("~/Scripts/pageJs/AHCView.js")"></script>
+}
+
+@section scripts{
+    <script>
+		SetDatePicker('#txtStart');
+		SetDatePicker('#txtEnd');
+
+		$('#sStart').click(function () {
+			SetDatePicker('#txtStart');
+			$('#txtStart').datepicker('show');
+		});
+		$('#sEnd').click(function () {
+			SetDatePicker('#txtEnd');
+			$('#txtEnd').datepicker('show');
+		});
+
+		function SetDatePicker(target) {
+			$(target).datepicker({
+				showOtherMonths: true,
+				selectOtherMonths: false,
+				dateFormat: 'yy-mm-dd',
+				beforeShowDay: function (date) {
+					if (date.getDay() == 1) {
+						return [true, ''];
+					}
+					return [false, ''];
+				}
+			}).mask("9999-99-99");
+		}
+
+        $('#txtYear').on('keypress keyup blur', function (event) {
+            common.AllowInt(event, '#txtYear');
+        });
+
+        $('#btnGenerate').click(function () {
+            var start = $('#txtStart').val();
+            var end = $('#txtEnd').val();
+            var msg = '';
+            var startDate = '';
+            var endDate = '';
+
+            if ((start.trim() != '' && end.trim() == '') || (start.trim() == '' && end.trim() != '')) {
+                if (end.trim() == '')
+                    msg = 'End date is required.';
+                if(start.trim() == '')
+                    msg = 'Start date is required.';
+            }
+            if (start.trim() != '' && end.trim() != '') {
+                var d1 = new Date(start.trim());
+                var d2 = new Date(end.trim());
+
+                if (d2 < d1)
+                    msg = 'Invalid date range.';
+
+                startDate = start;
+                endDate = end;
+            }
+
+            if (msg == '') {
+                $('#divLoading').show();
+                //generate
+                var model = {
+                    "start": startDate,
+                    "end": endDate
+                };
+                $.post('@Url.Action( "GenerateSiteMonthlySummary", "ExcessDeficit" )', model, function (data) {
+                    $('#divSiteSummaryHTML').html('');
+                    $('#divSiteSummaryHTML').html(data.SiteSummaryHTML);
+
+                    $('#divLoading').hide();
+                }, 'json');
+            }
+            else {
+                $.alert({
+                    closeIcon: true,
+                    title: 'WFMPCP | Excess Deficit',
+                    content: msg
+                });
+            }
+
+        });
+    </script>
+}
+
+
+
+
+
+
+

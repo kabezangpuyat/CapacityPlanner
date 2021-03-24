@@ -1,0 +1,176 @@
+﻿@model WFMPCP.Model.SummaryOverAllExcessDeficitViews
+<div class="row">
+    <div class="col-xs-12">
+        <div>
+            <table id="simple-table" class="table  table-bordered">
+                <thead>
+                    <tr>
+                        <th colspan="4">Campaign Summary</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="width:25%;">
+                            <div>
+                                <table id="simple-table" class="table  table-bordered">
+                                    <tbody>
+                                        <tr>
+                                            <td style="width:50%;"><strong>@Model.MonthYear1</strong></td>
+                                            [FirstMonthTotal]
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div>
+                                <table id="simple-table" class="table  table-bordered">
+                                    <tbody>
+                                        <tr>
+                                            <td style="width:50%;"><strong>@Model.MonthYear2</strong></td>
+                                            [SecondMonthTotal]
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div>
+                                <table id="simple-table" class="table  table-bordered">
+                                    <tbody>
+                                        <tr>
+                                            <td style="width:50%;"><strong>@Model.MonthYear3</strong></td>
+                                            [ThirdMonthTotal]
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </td>
+                        <td style="width:25%;">
+                            <table id="simple-table" class="table  table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th colspan="2" class="center">@Model.Month1 Hiring Outlook</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach( var row in Model.FirstMonthCampaign )
+                                    {
+                                        <tr>
+                                            @{ var style = "";
+                                                var value = "";}
+                                            @foreach( var column in row )
+                                            {
+                                                if( column.Key.Trim().ToLower() == "campaign" )
+                                                {
+                                                    style = "font-weight: bold;";
+                                                    value = column.Value.ToString();
+                                                }
+                                                else
+                                                {
+                                                    style = "text-align:center;";
+                                                    double init = Math.Ceiling( Convert.ToDouble( column.Value ) );
+
+                                                    if( init < 0 )
+                                                    {
+                                                        style = "text-align:center;color:Red;";
+                                                        value = string.Format( "({0})", init.ToString().Replace( "-", "" ) );
+                                                    }
+                                                    else
+                                                    {
+                                                        value = init.ToString();
+                                                    }
+                                                }
+                                                <td style="@style">@value</td>
+                                            }
+                                        </tr>
+                                     }
+                                </tbody>
+                            </table>
+                        </td>
+                        <td style="width:25%;">
+                            <table id="simple-table" class="table  table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th colspan="2" class="center">@Model.Month2 Hiring Outlook</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach( var row in Model.SecondMonthCampaign )
+                                    {
+                                        <tr>
+                                            @{ var style = "";
+                                                var value = "";}
+                                            @foreach( var column in row )
+                                            {
+                                                if( column.Key.Trim().ToLower() == "campaign" )
+                                                {
+                                                    style = "font-weight: bold;";
+                                                    value = column.Value.ToString();
+                                                }
+                                                else
+                                                {
+                                                    style = "text-align:center;";
+                                                    double init = Math.Ceiling( Convert.ToDouble( column.Value ) );
+
+                                                    if( init < 0 )
+                                                    {
+                                                        style = "text-align:center;color:Red;";
+                                                        value = string.Format( "({0})", init.ToString().Replace( "-", "" ) );
+                                                    }
+                                                    else
+                                                    {
+                                                        value = init.ToString();
+                                                    }
+                                                }
+                                                <td style="@style">@value</td>
+                                            }
+                                        </tr>
+                                      }
+                                </tbody>
+                            </table>
+                        </td>
+                        <td style="width:25%;">
+                            <table id="simple-table" class="table  table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th colspan="2" class="center">@Model.Month3 Hiring Outlook</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach( var row in Model.ThirdMonthCampaign )
+                                    {
+                                        <tr>
+                                            @{ var style = "";
+                                                var value = "";}
+                                            @foreach( var column in row )
+                                            {
+                                                if( column.Key.Trim().ToLower() == "campaign" )
+                                                {
+                                                    style = "font-weight: bold;";
+                                                    value = column.Value.ToString();
+                                                }
+                                                else
+                                                {
+                                                    style = "text-align:center;";
+                                                    double init = Math.Ceiling( Convert.ToDouble( column.Value ) );
+
+                                                    if( init < 0 )
+                                                    {
+                                                        style = "text-align:center;color:Red;";
+                                                        value = string.Format( "({0})", init.ToString().Replace( "-", "" ) );
+                                                    }
+                                                    else
+                                                    {
+                                                        value = init.ToString();
+                                                    }
+                                                }
+                                                <td style="@style">@value</td>
+                                            }
+                                        </tr>
+                                     }
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

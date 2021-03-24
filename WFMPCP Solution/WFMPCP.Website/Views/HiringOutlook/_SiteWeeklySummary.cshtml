@@ -1,0 +1,62 @@
+﻿@model WFMPCP.Model.SummaryOverAllHiringOutlookViews
+
+<div class="row">
+    <div class="col-xs-12">
+        <div>
+            <table id="simple-table" class="table  table-bordered">
+                <thead>
+                    <tr>
+                        @try
+                        {
+                            foreach( var row in Model.SitePivot.FirstOrDefault() )
+                            {
+                                if( row.Key.ToString().ToLower() == "site" )
+                                {
+                                    <th style="text-align:center;">@row.Key</th>
+                                }
+                                else
+                                {
+                                    var date = Convert.ToDateTime( row.Key ).ToString( "MMM dd, yyyy" );
+                                    <th style="text-align:center;"><a id="ahref" href="#">@date</a></th>
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            <th style="text-align:center;">&nbsp;</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                        @try
+                        {
+                            foreach( var row in Model.SitePivot )
+                            {
+                                <tr>
+                                @{ var style = "";}
+                                @foreach( var column in row )
+                                {
+                                    if( column.Key.Trim().ToLower() == "site" )
+                                    {
+                                        style = "font-weight: bold;";
+                                    }
+                                    else
+                                    {
+                                        style = "text-align:center;";
+                                    }
+                                    <td style="@style">@column.Value</td>
+                                }
+                                </tr>
+                            }
+                        }
+                        catch
+                        {
+
+                        }
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+</div>
+

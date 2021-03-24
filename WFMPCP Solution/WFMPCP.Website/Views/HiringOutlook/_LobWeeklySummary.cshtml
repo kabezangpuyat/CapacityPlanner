@@ -1,0 +1,65 @@
+﻿@model WFMPCP.Model.SummaryOverAllHiringOutlookViews
+
+<table id="simple-table" class="table table-bordered"  cellspacing="0">
+    <thead>
+        <tr>
+            @try
+            {
+                foreach( var row in Model.LobPivot.FirstOrDefault() )
+                {
+                    if( row.Key.Trim().ToLower() != "campaignid" )
+                    {
+                        <th style="text-align:center;">@row.Key</th>
+                    }
+                }
+            }
+            catch
+            {
+                <th style="text-align:center;">&nbsp;</th>
+            }
+           
+        </tr>
+    </thead>
+
+    <tbody>
+        @try
+        {
+            foreach( var row in Model.LobPivot )
+            {
+                <tr>
+                    @{ var style = "";}
+                    @foreach( var column in row )
+                    {
+                        var campaignID = "0";
+                        if( column.Key.Trim().ToLower() == "campaignid" )
+                        {
+                            campaignID = column.Value.ToString();
+                        }
+
+                        if( column.Key.Trim().ToLower() != "campaignid" )
+                        {
+                            if( column.Key.Trim().ToLower() == "lob" )
+                            {
+                                style = "font-weight: bold;";
+                            }
+                            else
+                            {
+                                style = "text-align:center;";
+                            }
+                            <td style="@style">@column.Value</td>
+                        }
+                    }
+                </tr>
+
+            }
+        }
+        catch
+        {
+
+        }
+
+    </tbody>
+</table>
+
+
+

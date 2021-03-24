@@ -1,0 +1,116 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{BE9A43E6-6A36-4C8E-91C2-1CB77C02797A}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>WFMPCP.Uploader.App</RootNamespace>
+    <AssemblyName>WFMPCP.Uploader.App</AssemblyName>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Newtonsoft.Json, Version=10.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.10.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Ninject, Version=3.2.0.0, Culture=neutral, PublicKeyToken=c7192dc5380945e7, processorArchitecture=MSIL">
+      <HintPath>..\packages\Ninject.3.2.2.0\lib\net45-full\Ninject.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Xml" />
+    <Reference Include="Taskus.Infrastructure">
+      <HintPath>..\packages\Taskus.Infrastructure\Taskus.Infrastructure.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Operations\AHCUploaderOperation.cs" />
+    <Compile Include="IoC\WFMNinjectModule.cs" />
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config">
+      <SubType>Designer</SubType>
+    </None>
+    <None Include="packages.config" />
+    <None Include="UploadedFiles\1.1.1.csv" />
+    <None Include="UploadedFiles\2.29.123 - Copy.csv" />
+    <None Include="UploadedFiles\2.29.123.csv" />
+    <None Include="UploadedFiles\2.41.135.csv" />
+    <None Include="UploadedFiles\Test.csv" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WFMPCP.Core\WFMPCP.Core.csproj">
+      <Project>{0320e6d2-6994-4de5-82b5-9edf9ac7a0ba}</Project>
+      <Name>WFMPCP.Core</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\WFMPCP.Data\WFMPCP.Data.csproj">
+      <Project>{0b2a078f-5d29-4182-ac5b-97cb71571e03}</Project>
+      <Name>WFMPCP.Data</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\WFMPCP.ICore\WFMPCP.ICore.csproj">
+      <Project>{031827c5-52b5-4f20-9b8c-27c28bc04ab5}</Project>
+      <Name>WFMPCP.ICore</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\WFMPCP.Infrastructure\WFMPCP.Infrastructure.csproj">
+      <Project>{54730ded-b052-4bed-807c-bc18ef2d969c}</Project>
+      <Name>WFMPCP.Infrastructure</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\WFMPCP.IService\WFMPCP.IService.csproj">
+      <Project>{15297d84-7db4-4d03-9ee4-22a81d5db5b0}</Project>
+      <Name>WFMPCP.IService</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\WFMPCP.Model\WFMPCP.Model.csproj">
+      <Project>{266e3bbe-6b6b-4679-b906-66f6f5f9a68b}</Project>
+      <Name>WFMPCP.Model</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\WFMPCP.Service\WFMPCP.Service.csproj">
+      <Project>{73920e34-03a3-4a8b-95d5-616ccb4c3af7}</Project>
+      <Name>WFMPCP.Service</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="UploadedFiles\TSQL.txt" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

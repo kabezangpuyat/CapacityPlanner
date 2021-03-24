@@ -1,0 +1,13 @@
+﻿CREATE TABLE [dbo].[LoB]
+(
+	[ID] BIGINT NOT NULL IDENTITY (1, 1) CONSTRAINT [PK_LoB_ID] PRIMARY KEY([ID]), 
+	[CampaignID] BIGINT NOT NULL,
+    [Name] NVARCHAR(250) NOT NULL,
+	[Code] NVARCHAR(50) NOT NULL, 
+    [Description] NVARCHAR(250) NULL, 	
+	[CreatedBy] NVARCHAR(250) NULL, 
+	[ModifiedBy] NVARCHAR(250) NULL, 
+    [DateCreated] DATETIME NOT NULL CONSTRAINT [DF_LoB_DateCreated] DEFAULT(GETDATE()), 
+    [DateModified] DATETIME NULL, 
+    [Active] BIT NOT NULL CONSTRAINT [DF_LoB_Active] DEFAULT(1)   
+)

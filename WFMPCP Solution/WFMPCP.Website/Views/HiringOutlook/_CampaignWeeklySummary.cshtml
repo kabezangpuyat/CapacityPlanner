@@ -1,0 +1,101 @@
+﻿@model WFMPCP.Model.SummaryOverAllHiringOutlookViews
+
+<div class="row">
+    <div class="col-xs-12">
+        <div>
+            <table id="simple-table" class="table  table-bordered table-hover">
+                <thead>
+                    <tr>
+                        @try
+                        {
+                            foreach( var row in Model.SitePivot.FirstOrDefault() )
+                            {
+                                if( row.Key.Trim().ToLower() != "campaignid" )
+                                {
+                                    if( row.Key.Trim().ToLower() == "campaign" )
+                                    {
+                                        <th style="text-align:center;">@row.Key</th>
+                                    }
+                                    else
+                                    {
+                                        var date = Convert.ToDateTime( row.Key ).ToString( "MMM dd, yyyy" );
+                                        <th style="text-align:center;">@date</th>
+                                    }
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            <th style="text-align:center;">&nbsp;</th>
+                        }
+                       
+                    </tr>
+                </thead>
+                <tbody>
+                        @try
+                        {
+                            foreach( var row in Model.SitePivot )
+                            {
+                                <tr>
+                                @{ var style = "";
+                                    var onclick = "javascript:OnColumnClick('0')";
+                                    var campaignID = "0";}
+                                @foreach( var column in row )
+                                {
+
+                                    if( column.Key.Trim().ToLower() == "campaignid" )
+                                    {
+                                        onclick = "javascript:OnColumnClick('" + column.Value.ToString() + "')";
+                                        campaignID = column.Value.ToString();
+                                    }
+
+                                    if( column.Key.Trim().ToLower() != "campaignid" )
+                                    {
+                                        if( column.Key.Trim().ToLower() == "campaign" )
+                                        {
+                                            style = "font-weight: bold;";
+                                        }
+                                        else
+                                        {
+                                            style = "text-align:center;";
+                                        }
+                                        <td style="cursor:pointer;@style" onclick="@onclick">@column.Value</td>
+                                        @*if( Model.SiteID == "" )
+                                        {
+                                            <td style="cursor:pointer;@style" onclick="@onclick">@column.Value</td>
+                                        }
+                                        else
+                                        {
+                                            <td id="td_@campaignID">
+                                                <table style="width:100%;" class="table  table-bordered">
+                                                    <tr>
+                                                        <td style="cursor:pointer;@style" onclick="@onclick">@column.Value</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>adf</td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        }*@
+                                    }
+                                }
+                                </tr>
+                                <tr id="tr1_@campaignID" style="display:none;">
+                                    <td style="display:none;"><input type="text" value="0" id="txt_@campaignID" style="display:none;" /></td>
+                                </tr>
+                                <tr id="tr2_@campaignID" style="display:none;border-spacing:0;padding:0;">
+                                    <td colspan="@(row.Count()-1)" id="td_@campaignID"></td>
+                                </tr>
+                            }
+                        }
+                        catch
+                        {
+
+                        }
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+</div>
+

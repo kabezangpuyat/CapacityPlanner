@@ -1,0 +1,12 @@
+﻿CREATE TABLE [dbo].[Site]
+(
+	[ID] BIGINT NOT NULL IDENTITY (1, 1) CONSTRAINT [PK_Site_ID] PRIMARY KEY([ID]), 
+    [Name] NVARCHAR(250) NOT NULL,
+	[Code] NVARCHAR(50) NOT NULL, 
+    [Description] NVARCHAR(250) NULL, 	
+	[CreatedBy] NVARCHAR(250) NULL, 
+	[ModifiedBy] NVARCHAR(250) NULL, 
+    [DateCreated] DATETIME NOT NULL CONSTRAINT [DF_Site_DateCreated] DEFAULT(GETDATE()), 
+    [DateModified] DATETIME NULL, 
+    [Active] BIT NOT NULL CONSTRAINT [DF_Site_Active] DEFAULT(1)   
+)

@@ -1,0 +1,5101 @@
+﻿/******************************
+** File: Buildscript_1.00.071.sql
+** Name: Buildscript_1.00.071
+** Auth: McNiel Viray
+** Date: 26 September 2017
+**************************
+** Change History
+**************************
+**
+*******************************/
+USE WFMPCP
+GO
+
+PRINT N'Altering [dbo].[wfmpcp_GetCampaignWeeklyActualHC_sp]...';
+
+
+GO
+ALTER PROCEDURE [dbo].[wfmpcp_GetCampaignWeeklyActualHC_sp]
+	@Start NVARCHAR(20) = ''
+	,@End  NVARCHAR(20) = ''
+	,@SiteID NVARCHAR(20) = ''
+AS
+BEGIN
+	DECLARE @cols AS NVARCHAR(MAX)
+		,@select  AS NVARCHAR(MAX)
+		,@where  AS NVARCHAR(MAX)=''
+		,@startdate DATE
+		,@enddate DATE
+	
+	IF(@SiteID != '' )
+	BEGIN
+		SET @where = ' AND w.SiteID=' + @SiteID + '  '
+	END
+
+	IF(@Start = '' AND @End = '')
+	BEGIN	
+		SET @startdate = DATEADD(m, DATEDIFF(m, 0, GETDATE()), 0) 
+		SET @enddate = DATEADD(DAY,-1,DATEADD(MONTH,3,@startdate))
+	
+	END
+	ELSE
+	BEGIN
+		SET @startdate = DATEADD(m, DATEDIFF(m, 0, CAST( @Start AS DATE)), 0) 
+		SET @enddate = DATEADD(s,-1,DATEADD(mm, DATEDIFF(m,0,CAST( @End AS DATE))+1,0))
+	END
+
+	SET @startdate = [dbo].[udf_GetFirstMondayOfMonth](@startdate)
+	SET @enddate = [dbo].[udf_GetLastMondayOfMonth](@enddate)
+
+	DECLARE @tblDate AS TABLE
+	(
+		[Date] DATE
+	)
+	INSERT INTO @tblDate ([Date])
+	SELECT [Date]
+	FROM WeeklyHiringDatapoint
+	WHERE ([Date] BETWEEN @startdate AND @enddate) 
+	GROUP BY [Date]
+	ORDER BY [Date]
+
+	SELECT @cols = STUFF((SELECT ',' + QUOTENAME([Date]) 
+								FROM @tblDate
+								ORDER BY [Date]
+						FOR XML PATH(''), TYPE
+						).value('.', 'NVARCHAR(MAX)') 
+					,1,1,'')
+	
+
+	SET @select = '
+		SELECT s.ID CampaignID,s.Name [Campaign],' + @cols +'
+		FROM (
+			SELECT *
+			FROM
+			(
+				SELECT w.CampaignID
+					,w.[Date]
+					,CEILING(CAST(ISNULL(NULLIF(LTRIM(RTRIM(REPLACE(w.[Data],''%'',''''))),''''),''0'') AS DECIMAL)) [Data]
+				FROM WeeklyStaffDatapoint w
+				INNER JOIN [Site] s ON s.ID=w.SiteID
+				INNER JOIN [Campaign] c ON c.ID=w.CampaignID
+				INNER JOIN [LoB] l ON l.ID=w.LoBID
+				WHERE 1=1 AND s.Active=1 AND c.Active=1 AND l.Active=1 ' + @where + '
+					AND w.DatapointID=21
+					AND (w.[Date] BETWEEN ''' + CAST(@startdate AS NVARCHAR) + ''' AND ''' + CAST(@enddate AS NVARCHAR) +''') 
+			) x		
+			PIVOT
+			(
+				AVG(Data)
+				FOR [Date] IN (' + @cols +')
+			)p
+		) A
+		INNER JOIN [Campaign] s ON s.ID=A.CampaignID
+		WHERE 1=1 
+		ORDER BY s.Name
+	'
+
+	
+
+	EXECUTE( @select )
+END
+GO
+PRINT N'Altering [dbo].[wfmpcp_GetCampaignWeeklyHiringPlan_sp]...';
+
+
+GO
+ALTER PROCEDURE [dbo].[wfmpcp_GetCampaignWeeklyHiringPlan_sp]
+	@Start NVARCHAR(20) = ''
+	,@End  NVARCHAR(20) = ''
+	,@SiteID NVARCHAR(20) = ''
+AS
+BEGIN
+	DECLARE @cols AS NVARCHAR(MAX)
+		,@select  AS NVARCHAR(MAX)
+		,@where  AS NVARCHAR(MAX)=''
+		,@startdate DATE
+		,@enddate DATE
+	
+	IF(@SiteID != '' )
+	BEGIN
+		SET @where = ' AND w.SiteID=' + @SiteID + '  '
+	END
+
+	IF(@Start = '' AND @End = '')
+	BEGIN	
+		SET @startdate = DATEADD(m, DATEDIFF(m, 0, GETDATE()), 0) 
+		SET @enddate = DATEADD(DAY,-1,DATEADD(MONTH,3,@startdate))
+	
+	END
+	ELSE
+	BEGIN
+		SET @startdate = DATEADD(m, DATEDIFF(m, 0, CAST( @Start AS DATE)), 0) 
+		SET @enddate = DATEADD(s,-1,DATEADD(mm, DATEDIFF(m,0,CAST( @End AS DATE))+1,0))
+	END
+
+	SET @startdate = [dbo].[udf_GetFirstMondayOfMonth](@startdate)
+	SET @enddate = [dbo].[udf_GetLastMondayOfMonth](@enddate)
+
+	DECLARE @tblDate AS TABLE
+	(
+		[Date] DATE
+	)
+	INSERT INTO @tblDate ([Date])
+	SELECT [Date]
+	FROM WeeklyHiringDatapoint
+	WHERE ([Date] BETWEEN @startdate AND @enddate) 
+	GROUP BY [Date]
+	ORDER BY [Date]
+
+	SELECT @cols = STUFF((SELECT ',' + QUOTENAME([Date]) 
+								FROM @tblDate
+								ORDER BY [Date]
+						FOR XML PATH(''), TYPE
+						).value('.', 'NVARCHAR(MAX)') 
+					,1,1,'')
+	
+
+	SET @select = '
+		SELECT s.ID CampaignID,s.Name [Campaign],' + @cols +'
+		FROM (
+			SELECT *
+			FROM
+			(
+				SELECT w.CampaignID
+					,w.[Date]
+					,CAST(w.[Data] AS bigint) [Data]
+				FROM WeeklyHiringDatapoint w
+				INNER JOIN [Site] s ON s.ID=w.SiteID
+				INNER JOIN [Campaign] c ON c.ID=w.CampaignID
+				INNER JOIN [LoB] l ON l.ID=w.LoBID
+				WHERE 1=1 AND s.Active=1 AND c.Active=1 AND l.Active=1 ' + @where + '
+					AND (w.[Date] BETWEEN ''' + CAST(@startdate AS NVARCHAR) + ''' AND ''' + CAST(@enddate AS NVARCHAR) +''') 
+			) x		
+			PIVOT
+			(
+				SUM(Data)
+				FOR [Date] IN (' + @cols +')
+			)p
+		) A
+		INNER JOIN [Campaign] s ON s.ID=A.CampaignID
+		WHERE 1=1 
+		ORDER BY s.Name
+	'
+
+	
+
+	EXECUTE( @select )
+END
+GO
+PRINT N'Altering [dbo].[wfmpcp_GetExcessDeficitVsActualHC_sp]...';
+
+
+GO
+ALTER PROCEDURE [dbo].[wfmpcp_GetExcessDeficitVsActualHC_sp]
+	@Start NVARCHAR(20) = ''
+	,@End  NVARCHAR(20) = ''
+	,@SiteID NVARCHAR(20) = ''
+AS
+BEGIN
+	DECLARE @cols AS NVARCHAR(MAX)
+		,@select  AS NVARCHAR(MAX)
+		,@where  AS NVARCHAR(MAX)=''
+		,@startdate DATE
+		,@enddate DATE
+	
+	IF(@SiteID != '' )
+	BEGIN
+		SET @where = ' AND w.SiteID=' + @SiteID + '  '
+	END
+
+	IF(@Start = '' AND @End = '')
+	BEGIN	
+		SET @startdate = DATEADD(m, DATEDIFF(m, 0, GETDATE()), 0) 
+		SET @enddate = DATEADD(DAY,-1,DATEADD(MONTH,3,@startdate))
+	
+	END
+	ELSE
+	BEGIN
+		SET @startdate = DATEADD(m, DATEDIFF(m, 0, CAST( @Start AS DATE)), 0) 
+		SET @enddate = DATEADD(s,-1,DATEADD(mm, DATEDIFF(m,0,CAST( @End AS DATE))+1,0))
+	END
+
+	SET @startdate = [dbo].[udf_GetFirstMondayOfMonth](@startdate)
+	SET @enddate = [dbo].[udf_GetLastMondayOfMonth](@enddate)
+
+	DECLARE @tblDate AS TABLE
+	(
+		[Date] DATE
+	)
+	INSERT INTO @tblDate ([Date])
+	SELECT [Date]
+	FROM WeeklyHiringDatapoint
+	WHERE ([Date] BETWEEN @startdate AND @enddate) 
+	GROUP BY [Date]
+	ORDER BY [Date]
+
+	SELECT @cols = STUFF((SELECT ',' + QUOTENAME([Date])
+								FROM @tblDate
+								ORDER BY [Date]
+						FOR XML PATH(''), TYPE
+						).value('.', 'NVARCHAR(MAX)') 
+					,1,1,'')
+	
+	SET @select = '
+		SELECT s.ID CampaignID,s.Name [Campaign],[Type],' + @cols +'
+		FROM (
+			SELECT *
+			FROM
+			(
+				SELECT w.CampaignID
+					,[Campaign]=(SELECT Name FROM Campaign WHERE ID=w.CampaignID)
+					,Type=''E/D''
+					,TypeID=1
+					,[Date]=w.[Date]
+					,[Data] = CASE w.DatapointID WHEN 23 THEN CEILING(CAST(ISNULL(NULLIF(LTRIM(RTRIM(REPLACE(w.[Data],''%'',''''))),''''),''0'') AS DECIMAL)) END
+				FROM WeeklyStaffDatapoint w
+				INNER JOIN [Site] s ON s.ID=w.SiteID
+				INNER JOIN [Campaign] c ON c.ID=w.CampaignID
+				INNER JOIN [LoB] l ON l.ID=w.LoBID
+				WHERE 1=1 AND s.Active=1 AND c.Active=1 AND l.Active=1 ' + @where + '
+					AND w.DatapointID IN (23)
+					AND (w.[Date] BETWEEN ''' + CAST(@startdate AS NVARCHAR) + ''' AND ''' + CAST(@enddate AS NVARCHAR) +''') 
+				UNION
+				SELECT w.CampaignID
+					,[Campaign]=(SELECT Name FROM Campaign WHERE ID=w.CampaignID)
+					,Type=''Act HC''
+					,TypeID=2
+					,[Date]=w.[Date]
+					,[Data] = CASE w.DatapointID WHEN 22 THEN CEILING(CAST(ISNULL(NULLIF(LTRIM(RTRIM(REPLACE(w.[Data],''%'',''''))),''''),''0'') AS DECIMAL)) END
+				FROM WeeklyStaffDatapoint w
+				INNER JOIN [Site] s ON s.ID=w.SiteID
+				INNER JOIN [Campaign] c ON c.ID=w.CampaignID
+				INNER JOIN [LoB] l ON l.ID=w.LoBID
+				WHERE 1=1 AND s.Active=1 AND c.Active=1 AND l.Active=1 ' + @where + '
+					AND w.DatapointID IN (22)
+					AND (w.[Date] BETWEEN ''' + CAST(@startdate AS NVARCHAR) + ''' AND ''' + CAST(@enddate AS NVARCHAR) +''') 
+			) x		
+			PIVOT
+			(
+				MAX(Data)
+				FOR [Date] IN (' + @cols +')
+			)p
+		) A
+		INNER JOIN [Campaign] s ON s.ID=A.CampaignID
+		WHERE 1=1 
+		ORDER BY s.Name,[TypeID]
+	'
+	EXECUTE( @select )
+END
+GO
+PRINT N'Altering [dbo].[wfmpcp_GetLoBWeeklyExcessDeficit_sp]...';
+
+
+GO
+ALTER PROCEDURE [dbo].[wfmpcp_GetLoBWeeklyExcessDeficit_sp]
+	@Start NVARCHAR(20) = ''
+	,@End  NVARCHAR(20) = ''
+	,@CampaignID NVARCHAR(20) = ''
+AS
+BEGIN
+		DECLARE @cols AS NVARCHAR(MAX)
+		,@select  AS NVARCHAR(MAX)
+		,@where  AS NVARCHAR(MAX)=''
+		,@startdate DATE
+		,@enddate DATE
+
+	IF(@CampaignID != '' )
+	BEGIN
+		SET @where = ' AND w.CampaignID=' + @CampaignID + ' '
+	END
+
+	IF(@Start = '' AND @End = '')
+	BEGIN	
+		SET @startdate = DATEADD(m, DATEDIFF(m, 0, GETDATE()), 0) 
+		SET @enddate = DATEADD(DAY,-1,DATEADD(MONTH,3,@startdate))
+	
+	END
+	ELSE
+	BEGIN
+		SET @startdate = DATEADD(m, DATEDIFF(m, 0, CAST( @Start AS DATE)), 0) 
+		SET @enddate = DATEADD(s,-1,DATEADD(mm, DATEDIFF(m,0,CAST( @End AS DATE))+1,0))
+	END
+
+	SET @startdate = [dbo].[udf_GetFirstMondayOfMonth](@startdate)
+	SET @enddate = [dbo].[udf_GetLastMondayOfMonth](@enddate)
+
+	DECLARE @tblDate AS TABLE
+	(
+		[Date] DATE
+	)
+	INSERT INTO @tblDate ([Date])
+	SELECT [Date]
+	FROM WeeklyHiringDatapoint
+	WHERE ([Date] BETWEEN @startdate AND @enddate) 
+	GROUP BY [Date]
+	ORDER BY [Date]
+
+	SELECT @cols = STUFF((SELECT ',' + QUOTENAME([Date]) 
+								FROM @tblDate
+								ORDER BY [Date]
+						FOR XML PATH(''), TYPE
+						).value('.', 'NVARCHAR(MAX)') 
+					,1,1,'')
+
+
+	SET @select = '
+		SELECT A.CampaignID,s.Name [LoB],' + @cols +'
+		FROM (
+			SELECT *
+			FROM
+			(
+				SELECT w.LoBID
+				    ,w.CampaignID
+					,w.[Date]
+					,CEILING(CAST(ISNULL(NULLIF(LTRIM(RTRIM(REPLACE(w.[Data],''%'',''''))),''''),''0'') AS DECIMAL)) [Data]
+				FROM WeeklyStaffDatapoint w
+				INNER JOIN [Site] s ON s.ID=w.SiteID
+				INNER JOIN [Campaign] c ON c.ID=w.CampaignID
+				INNER JOIN [LoB] l ON l.ID=w.LoBID
+				WHERE 1=1 AND s.Active=1 AND c.Active=1 AND l.Active=1 ' + @where + '			
+					AND w.DatapointID=23		
+					AND (w.[Date] BETWEEN ''' + CAST(@startdate AS NVARCHAR) + ''' AND ''' + CAST(@enddate AS NVARCHAR) +''') 
+			) x		
+			PIVOT
+			(
+				MAX(Data)
+				FOR [Date] IN (' + @cols +')
+			)p
+		) A
+		INNER JOIN [LoB] s ON s.ID=A.LoBID
+		WHERE 1=1 
+		ORDER BY s.Name
+	'
+
+	EXECUTE( @select )
+END
+GO
+
+PRINT N'Altering [dbo].[wfmpcp_GetCampaignWeeklyExcessDeficit_sp]...';
+
+
+GO
+ALTER PROCEDURE [dbo].[wfmpcp_GetCampaignWeeklyExcessDeficit_sp]
+	@Start NVARCHAR(20) = ''
+	,@End  NVARCHAR(20) = ''
+	,@SiteID NVARCHAR(20) = ''
+AS
+BEGIN
+	DECLARE @cols AS NVARCHAR(MAX)
+		,@select  AS NVARCHAR(MAX)
+		,@where  AS NVARCHAR(MAX)=''
+		,@startdate DATE
+		,@enddate DATE
+	
+	IF(@SiteID != '' )
+	BEGIN
+		SET @where = ' AND w.SiteID=' + @SiteID + '  '
+	END
+
+	IF(@Start = '' AND @End = '')
+	BEGIN	
+		SET @startdate = DATEADD(m, DATEDIFF(m, 0, GETDATE()), 0) 
+		SET @enddate = DATEADD(DAY,-1,DATEADD(MONTH,3,@startdate))
+	
+	END
+	ELSE
+	BEGIN
+		SET @startdate = DATEADD(m, DATEDIFF(m, 0, CAST( @Start AS DATE)), 0) 
+		SET @enddate = DATEADD(s,-1,DATEADD(mm, DATEDIFF(m,0,CAST( @End AS DATE))+1,0))
+	END
+
+	SET @startdate = [dbo].[udf_GetFirstMondayOfMonth](@startdate)
+	SET @enddate = [dbo].[udf_GetLastMondayOfMonth](@enddate)
+
+	DECLARE @tblDate AS TABLE
+	(
+		[Date] DATE
+	)
+	INSERT INTO @tblDate ([Date])
+	SELECT [Date]
+	FROM WeeklyHiringDatapoint
+	WHERE ([Date] BETWEEN @startdate AND @enddate) 
+	GROUP BY [Date]
+	ORDER BY [Date]
+
+	SELECT @cols = STUFF((SELECT ',' + QUOTENAME([Date]) 
+								FROM @tblDate
+								ORDER BY [Date]
+						FOR XML PATH(''), TYPE
+						).value('.', 'NVARCHAR(MAX)') 
+					,1,1,'')
+	
+
+	SET @select = '
+		SELECT s.ID CampaignID,s.Name [Campaign],' + @cols +'
+		FROM (
+			SELECT *
+			FROM
+			(
+				SELECT w.CampaignID
+					,w.[Date]
+					,CEILING(CAST(ISNULL(NULLIF(LTRIM(RTRIM(REPLACE(w.[Data],''%'',''''))),''''),''0'') AS DECIMAL)) [Data]
+				FROM WeeklyStaffDatapoint w
+				INNER JOIN [Site] s ON s.ID=w.SiteID
+				INNER JOIN [Campaign] c ON c.ID=w.CampaignID
+				INNER JOIN [LoB] l ON l.ID=w.LoBID
+				WHERE 1=1 AND s.Active=1 AND c.Active=1 AND l.Active=1 ' + @where + '
+					AND w.DatapointID=23
+					AND (w.[Date] BETWEEN ''' + CAST(@startdate AS NVARCHAR) + ''' AND ''' + CAST(@enddate AS NVARCHAR) +''') 
+			) x		
+			PIVOT
+			(
+				SUM(Data)
+				FOR [Date] IN (' + @cols +')
+			)p
+		) A
+		INNER JOIN [Campaign] s ON s.ID=A.CampaignID
+		WHERE 1=1 
+		ORDER BY s.Name
+	'
+
+	
+
+	EXECUTE( @select )
+END
+GO
+PRINT N'Update complete.';
+
+
+GO
+/******************************
+** File: Buildscript_1.00.072.sql
+** Name: Buildscript_1.00.072
+** Auth: McNiel Viray
+** Date: 05 October 2017
+**************************
+** Change History
+**************************
+** Modify [dbo].[wfmpcp_GetSummary1_sp] by adding LoBID to it's where clause
+** Modify [dbo].[wfmpcp_GetStaffPlanner_sp] by making LoBID as optional in where clause
+** Modify [dbo].[wfmpcp_GetAssumptionsHeadcount_sp] by making LoBID as optional in where clause
+*******************************/
+USE WFMPCP
+GO
+
+
+PRINT N'Altering [dbo].[wfmpcp_GetAssumptionsHeadcount_sp]...';
+
+
+GO
+ALTER PROCEDURE [dbo].[wfmpcp_GetAssumptionsHeadcount_sp]
+	@lobid AS NVARCHAR(MAX)='',
+	@start AS NVARCHAR(MAX)='',
+	@end AS NVARCHAR(MAX)='',	
+	@includeDatapoint BIT = 1,
+	@tablename AS NVARCHAR(MAX)='WeeklyAHDatapoint',
+	@segmentcategoryid  AS NVARCHAR(MAX)='',
+	@segmentid  AS NVARCHAR(MAX)='',
+	@siteID AS NVARCHAR(MAX)='',
+	@campaignID AS NVARCHAR(MAX)=''
+AS
+BEGIN
+	DECLARE @cols AS NVARCHAR(MAX)
+		,@query  AS NVARCHAR(MAX)
+		,@select  AS NVARCHAR(MAX)
+		,@whereClause AS NVARCHAR(MAX) = ' '
+		,@orderBy AS NVARCHAR(MAX)
+		,@updateLobID BIGINT = NULL
+
+	IF(@lobid != '')
+	BEGIN
+		SET @updateLobID = CAST(@lobid AS BIGINT)
+	END
+
+	IF(@start <> '' AND @end <> '')
+	BEGIN
+		SELECT @cols = STUFF((SELECT ',' + QUOTENAME([Date]) 
+							FROM WeeklyAHDatapoint
+							WHERE [Date] BETWEEN CAST(@start AS DATE) AND CAST(@end AS DATE)
+							GROUP BY [Date]
+							ORDER BY [Date]
+					FOR XML PATH(''), TYPE
+					).value('.', 'NVARCHAR(MAX)') 
+				,1,1,'')
+
+		UPDATE WeeklyAHDatapoint
+			SET [Data]=
+			CASE DatapointID 
+				WHEN 1 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 2 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 3 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) 
+				WHEN 4 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 5 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 6 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) 
+				WHEN 7 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) 
+				WHEN 8 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) 
+				WHEN 9 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 10 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 11 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 12 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + '%'
+				WHEN 13 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) 
+				WHEN 14 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 15 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 16 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 17 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 18 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 19 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 20 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 21 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 22 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 23 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 24 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 25 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 26 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 27 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 28 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 29 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 30 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 31 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 32 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 33 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 34 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 35 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 36 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 37 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 38 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 39 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 40 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 41 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 42 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 43 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 44 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 45 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 46 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 47 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 48 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 49 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 50 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 51 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 52 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 53 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 54 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 55 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 56 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 57 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 58 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 59 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 60 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 61 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 62 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 63 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 64 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 65 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 66 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 67 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 68 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 69 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 70 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 71 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 72 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 73 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 74 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 75 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 76 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 77 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 78 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 79 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 80 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 81 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 82 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 83 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 84 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 85 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 86 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 87 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 91 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 92 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 93 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 94 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 95 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 96 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 97 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 98 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 99 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 100 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 101 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 102 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 103 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 104 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 105 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 106 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 107 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 108 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 109 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 110 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 111 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 112 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 113 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 114 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 115 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 116 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 117 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				ELSE [Data]	END
+			WHERE ((LoBID=@updateLobID) OR (@updateLobID IS NULL))
+				AND SiteID=CAST(@siteID AS BIGINT)
+				AND CampaignID=CAST(@campaignID AS BIGINT)
+			AND [Date] BETWEEN CAST(@start AS DATE) AND CAST(@end AS DATE)
+	END
+	ELSE
+	BEGIN
+		SELECT @cols = STUFF((SELECT ',' + QUOTENAME([Date]) 
+							FROM WeeklyAHDatapoint
+							WHERE [Date] BETWEEN DATEADD(yy, DATEDIFF(yy, 0, GETDATE()), 0) AND DATEADD(MONTH,12,GETDATE())
+							GROUP BY [Date]
+							ORDER BY [Date]
+					FOR XML PATH(''), TYPE
+					).value('.', 'NVARCHAR(MAX)') 
+				,1,1,'')
+
+		UPDATE WeeklyAHDatapoint
+			SET [Data]=
+			CASE DatapointID 
+				WHEN 1 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 2 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 3 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) 
+				WHEN 4 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 5 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 6 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) 
+				WHEN 7 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) 
+				WHEN 8 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) 
+				WHEN 9 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 10 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 11 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 12 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + '%'
+				WHEN 13 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) 
+				WHEN 14 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 15 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 16 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 17 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 18 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 19 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 20 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 21 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 22 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 23 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 24 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 25 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 26 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 27 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 28 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 29 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 30 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 31 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 32 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 33 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 34 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 35 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 36 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 37 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 38 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 39 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 40 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 41 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 42 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 43 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 44 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 45 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 46 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 47 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 48 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 49 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 50 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 51 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 52 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 53 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 54 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 55 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 56 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 57 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 58 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 59 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 60 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 61 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 62 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 63 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 64 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 65 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 66 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 67 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 68 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 69 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 70 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 71 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 72 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 73 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 74 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 75 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 76 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 77 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 78 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 79 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 80 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 81 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 82 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 83 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 84 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 85 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 86 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 87 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 91 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 92 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 93 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 94 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 95 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 96 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 97 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 98 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 99 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 100 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 101 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 102 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 103 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 104 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 105 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 106 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 107 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 108 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 109 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 110 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 111 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 112 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 113 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 114 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 115 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 116 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 117 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				ELSE [Data]	END
+			WHERE ((LoBID=@updateLobID) OR (@updateLobID IS NULL))
+				AND SiteID=CAST(@siteID AS BIGINT)
+				AND CampaignID=CAST(@campaignID AS BIGINT)
+			AND [Date] BETWEEN DATEADD(yy, DATEDIFF(yy, 0, GETDATE()), 0) AND DATEADD(MONTH,12,GETDATE())
+	END
+		
+	IF(@includeDatapoint=1)
+	BEGIN
+		SET @select = '
+				SELECT s.ID SegmentID, d.ID DatapointID, s.Name Segment, d.Name [Datapoint],' + @cols + '
+				FROM (
+					SELECT *
+					FROM
+					(
+						SELECT w.SiteID,w.CampaignID,w.LobID,w.datapointid,w.[Date],w.Data from ' + @tablename + 
+					' w 
+						INNER JOIN [Site] s ON s.ID=w.SiteID
+						INNER JOIN [Campaign] c ON c.ID=w.CampaignID
+						INNER JOIN [LoB] l ON l.ID=w.LoBID	
+						WHERE 1=1 AND s.Active=1 AND c.Active=1 AND l.Active=1 
+					) x		
+					PIVOT
+					(
+						MAX(Data)
+						FOR [Date] IN ('+ @cols +')
+					)p
+				) A
+				INNER JOIN Datapoint d ON d.ID=A.DatapointID
+				INNER JOIN Segment s ON s.ID=d.SegmentID
+				INNER JOIN SegmentCategory sc ON sc.ID=s.SegmentCategoryID
+				WHERE 1=1 '
+	END
+	ELSE
+	BEGIN
+		SET @select = '
+				SELECT ' + @cols + '
+				FROM (
+					SELECT *
+					FROM
+					(
+						SELECT w.SiteID,w.CampaignID,w.LobID,w.datapointid,w.[Date],w.Data from ' + @tablename + 
+					' w 
+						INNER JOIN [Site] s ON s.ID=w.SiteID
+						INNER JOIN [Campaign] c ON c.ID=w.CampaignID
+						INNER JOIN [LoB] l ON l.ID=w.LoBID	
+						WHERE 1=1 AND s.Active=1 AND c.Active=1 AND l.Active=1 
+					) x		
+					PIVOT
+					(
+						MAX(Data)
+						FOR [Date] IN ('+ @cols +')
+					)p
+				) A
+				INNER JOIN Datapoint d ON d.ID=A.DatapointID
+				INNER JOIN Segment s ON s.ID=d.SegmentID
+				INNER JOIN SegmentCategory sc ON sc.ID=s.SegmentCategoryID
+				WHERE 1=1 '
+	END
+
+	IF(@segmentcategoryid != '')
+	BEGIN
+		SET @whereClause = @whereClause + ' AND s.SegmentCategoryID=' + @segmentcategoryid
+	END
+
+	IF(@segmentid != '')
+	BEGIN
+		SET @whereClause = @whereClause + ' AND s.ID=' + @segmentid
+	END
+
+	IF(@lobid != '')
+	BEGIN
+		SET @whereClause = @whereClause + ' AND a.LoBID=' + @lobid
+	END	
+
+	IF(@siteID != '')
+	BEGIN
+		SET @whereClause = @whereClause + ' AND a.SiteID=' + @siteID
+	END	
+
+	IF(@campaignID != '')
+	BEGIN
+		SET @whereClause = @whereClause + ' AND a.CampaignID=' + @campaignID
+	END	
+
+	SET @orderBy = ' ORDER BY sc.SortOrder,s.SortOrder,d.SortOrder'
+	SET @query = @select + @whereClause + @orderBy
+
+	EXECUTE(@query);
+END
+GO
+PRINT N'Altering [dbo].[wfmpcp_GetCampaignWeeklyActualHC_sp]...';
+
+
+GO
+ALTER PROCEDURE [dbo].[wfmpcp_GetCampaignWeeklyActualHC_sp]
+	@Start NVARCHAR(20) = ''
+	,@End  NVARCHAR(20) = ''
+	,@SiteID NVARCHAR(20) = ''
+AS
+BEGIN
+	DECLARE @cols AS NVARCHAR(MAX)
+		,@select  AS NVARCHAR(MAX)
+		,@where  AS NVARCHAR(MAX)=''
+		,@startdate DATE
+		,@enddate DATE
+	
+	IF(@SiteID != '' )
+	BEGIN
+		SET @where = ' AND SiteID=' + @SiteID + '  '
+	END
+
+	IF(@Start = '' AND @End = '')
+	BEGIN	
+		SET @startdate = DATEADD(m, DATEDIFF(m, 0, GETDATE()), 0) 
+		SET @enddate = DATEADD(DAY,-1,DATEADD(MONTH,3,@startdate))
+	
+	END
+	ELSE
+	BEGIN
+		SET @startdate = DATEADD(m, DATEDIFF(m, 0, CAST( @Start AS DATE)), 0) 
+		SET @enddate = DATEADD(s,-1,DATEADD(mm, DATEDIFF(m,0,CAST( @End AS DATE))+1,0))
+	END
+
+	SET @startdate = [dbo].[udf_GetFirstMondayOfMonth](@startdate)
+	SET @enddate = [dbo].[udf_GetLastMondayOfMonth](@enddate)
+
+	DECLARE @tblDate AS TABLE
+	(
+		[Date] DATE
+	)
+	INSERT INTO @tblDate ([Date])
+	SELECT [Date]
+	FROM WeeklyHiringDatapoint
+	WHERE ([Date] BETWEEN @startdate AND @enddate) 
+	GROUP BY [Date]
+	ORDER BY [Date]
+
+	SELECT @cols = STUFF((SELECT ',' + QUOTENAME([Date]) 
+								FROM @tblDate
+								ORDER BY [Date]
+						FOR XML PATH(''), TYPE
+						).value('.', 'NVARCHAR(MAX)') 
+					,1,1,'')
+	
+
+	SET @select = '
+		SELECT s.ID CampaignID,s.Name [Campaign],' + @cols +'
+		FROM (
+			SELECT *
+			FROM
+			(
+				SELECT w.CampaignID
+					,w.[Date]
+					,CEILING(CAST(ISNULL(NULLIF(LTRIM(RTRIM(REPLACE(w.[Data],''%'',''''))),''''),''0'') AS DECIMAL)) [Data]
+				FROM WeeklyStaffDatapoint w
+				INNER JOIN [Site] s ON s.ID=w.SiteID
+				INNER JOIN [Campaign] c ON c.ID=w.CampaignID
+				INNER JOIN [LoB] l ON l.ID=w.LoBID
+				WHERE 1=1 AND s.Active=1 AND c.Active=1 AND l.Active=1 ' + @where + '
+					AND w.DatapointID=21
+					AND (w.[Date] BETWEEN ''' + CAST(@startdate AS NVARCHAR) + ''' AND ''' + CAST(@enddate AS NVARCHAR) +''') 
+			) x		
+			PIVOT
+			(
+				AVG(Data)
+				FOR [Date] IN (' + @cols +')
+			)p
+		) A
+		INNER JOIN [Campaign] s ON s.ID=A.CampaignID
+		WHERE 1=1 
+		ORDER BY s.Name
+	'
+
+	
+
+	EXECUTE( @select )
+END
+GO
+PRINT N'Altering [dbo].[wfmpcp_GetStaffPlanner_sp]...';
+
+
+GO
+ALTER PROCEDURE [dbo].[wfmpcp_GetStaffPlanner_sp]
+	@lobid AS NVARCHAR(MAX)='',
+	@start AS NVARCHAR(MAX)='',
+	@end AS NVARCHAR(MAX)='',	
+	@includeDatapoint BIT = 1,
+	@segmentid  AS NVARCHAR(MAX)='',
+	@siteID AS NVARCHAR(MAX)='',
+	@campaignID AS NVARCHAR(MAX)=''
+AS
+BEGIN
+	DECLARE @cols AS NVARCHAR(MAX)
+		,@query  AS NVARCHAR(MAX)
+		,@select  AS NVARCHAR(MAX)
+		,@whereClause AS NVARCHAR(MAX) = ' '
+		,@orderBy AS NVARCHAR(MAX)
+		,@updateLobID BIGINT = NULL
+
+	IF(@lobid != '')
+	BEGIN
+		SET @updateLobID = CAST(@lobid AS BIGINT)
+	END
+
+	IF(@start <> '' AND @end <> '')
+	BEGIN
+		SELECT @cols = STUFF((SELECT ',' + QUOTENAME([Date]) 
+							FROM WeeklyStaffDatapoint
+							WHERE [Date] BETWEEN CAST(@start AS DATE) AND CAST(@end AS DATE)
+							GROUP BY [Date]
+							ORDER BY [Date]
+					FOR XML PATH(''), TYPE
+					).value('.', 'NVARCHAR(MAX)') 
+				,1,1,'')
+
+
+		UPDATE WeeklyStaffDatapoint
+		SET [Data]=
+				CASE DatapointID 
+					WHEN 1 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX))
+					WHEN 2 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX))
+					WHEN 3 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX))
+					WHEN 4 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 5 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX)) 
+					WHEN 6 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX)) 
+					WHEN 7 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 8 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 9 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 10 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 11 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 12 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 13 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) 
+					WHEN 14 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) 
+					WHEN 15 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX))
+					WHEN 16 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX))
+					WHEN 17 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) + ' %'
+					WHEN 18 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) + ' %'
+					WHEN 19 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) + ' %'
+					WHEN 20 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) + ' %'
+					WHEN 21 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX)) 
+					WHEN 22 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX)) 
+					ELSE CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(10)) END
+		--FROM WeeklyStaffDatapoint 
+		WHERE ((LoBID=@updateLobID) OR (@updateLobID IS NULL))
+			AND SiteID=CAST(@siteID AS BIGINT)
+			AND CampaignID=CAST(@campaignID AS BIGINT)
+			AND [Date] BETWEEN CAST(@start AS DATE) AND CAST(@end AS DATE)
+	END
+	ELSE
+	BEGIN
+		SELECT @cols = STUFF((SELECT ',' + QUOTENAME([Date]) 
+							FROM WeeklyStaffDatapoint
+							WHERE [Date] BETWEEN DATEADD(yy, DATEDIFF(yy, 0, GETDATE()), 0) AND DATEADD(MONTH,12,GETDATE())
+							GROUP BY [Date]
+							ORDER BY [Date]
+					FOR XML PATH(''), TYPE
+					).value('.', 'NVARCHAR(MAX)') 
+				,1,1,'')
+
+
+		UPDATE WeeklyStaffDatapoint
+		SET [Data]=
+				CASE DatapointID 
+					WHEN 1 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX))
+					WHEN 2 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX))
+					WHEN 3 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX))
+					WHEN 4 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 5 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX)) 
+					WHEN 6 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX)) 
+					WHEN 7 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 8 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 9 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 10 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 11 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 12 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 13 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) 
+					WHEN 14 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) 
+					WHEN 15 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX))
+					WHEN 16 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX))
+					WHEN 17 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) + ' %'
+					WHEN 18 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) + ' %'
+					WHEN 19 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) + ' %'
+					WHEN 20 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) + ' %'
+					WHEN 21 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX)) 
+					WHEN 22 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX)) 
+					ELSE CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(10)) END
+		--FROM WeeklyStaffDatapoint 
+		WHERE ((LoBID=@updateLobID) OR (@updateLobID IS NULL))
+			AND SiteID=CAST(@siteID AS BIGINT)
+			AND CampaignID=CAST(@campaignID AS BIGINT)
+			AND [Date] BETWEEN DATEADD(yy, DATEDIFF(yy, 0, GETDATE()), 0) AND DATEADD(MONTH,12,GETDATE())
+	END
+		
+	IF(@includeDatapoint=1)
+	BEGIN
+		SET @select = '
+				SELECT s.ID SegmentID, d.ID DatapointID, s.Name Segment, d.Name [Datapoint],' + @cols + '
+				FROM (
+					SELECT *
+					FROM
+					(
+						SELECT w.SiteID,w.CampaignID,w.LobID,w.datapointid,w.[Date],w.[Data] from WeeklyStaffDatapoint w
+						INNER JOIN [Site] s ON s.ID=w.SiteID
+						INNER JOIN [Campaign] c ON c.ID=w.CampaignID
+						INNER JOIN [LoB] l ON l.ID=w.LoBID
+						WHERE 1=1 AND s.Active=1 AND c.Active=1 AND l.Active=1
+					 ) x		
+					PIVOT
+					(
+						MAX(Data)
+						FOR [Date] IN ('+ @cols +')
+					)p
+				) A
+				INNER JOIN StaffDatapoint d ON d.ID=A.DatapointID
+				INNER JOIN StaffSegment s ON s.ID=d.SegmentID
+				WHERE 1=1 '
+	END
+	ELSE
+	BEGIN
+		SET @select = '
+				SELECT ' + @cols + '
+				FROM (
+					SELECT *
+					FROM
+					(
+						SELECT w.SiteID,w.CampaignID,w.LobID,w.datapointid,w.[Date],w.[Data] from WeeklyStaffDatapoint w
+						INNER JOIN [Site] s ON s.ID=w.SiteID
+						INNER JOIN [Campaign] c ON c.ID=w.CampaignID
+						INNER JOIN [LoB] l ON l.ID=w.LoBID
+						WHERE 1=1 AND s.Active=1 AND c.Active=1 AND l.Active=1
+					) x		
+					PIVOT
+					(
+						MAX(Data)
+						FOR [Date] IN ('+ @cols +')
+					)p
+				) A
+				INNER JOIN StaffDatapoint d ON d.ID=A.DatapointID
+				INNER JOIN StaffSegment s ON s.ID=d.SegmentID
+				WHERE 1=1 '
+	END
+	
+	IF(@segmentid != '')
+	BEGIN
+		SET @whereClause = @whereClause + ' AND s.ID=' + @segmentid
+	END
+
+	IF(@lobid != '')
+	BEGIN
+		SET @whereClause = @whereClause + ' AND a.LoBID=' + @lobid
+	END	
+
+	IF(@siteID != '')
+	BEGIN
+		SET @whereClause = @whereClause + ' AND a.SiteID=' + @siteID
+	END	
+
+	IF(@campaignID != '')
+	BEGIN
+		SET @whereClause = @whereClause + ' AND a.CampaignID=' + @campaignID
+	END	
+
+	SET @orderBy = ' ORDER BY s.SortOrder,d.SortOrder'
+	SET @query = @select + @whereClause + @orderBy
+
+	EXECUTE(@query);
+END
+GO
+PRINT N'Altering [dbo].[wfmpcp_GetSummary1_sp]...';
+
+
+GO
+ALTER PROCEDURE [dbo].[wfmpcp_GetSummary1_sp]
+	@campaignID AS NVARCHAR(MAX)='',
+	@start AS NVARCHAR(MAX)='',
+	@end AS NVARCHAR(MAX)='',	
+	@includeDatapoint BIT = 1,
+	@siteID AS NVARCHAR(MAX)='',
+	@lobid AS NVARCHAR(MAX)=''
+AS
+BEGIN
+	DECLARE @cols AS NVARCHAR(MAX)
+		,@query  AS NVARCHAR(MAX)
+		,@select  AS NVARCHAR(MAX)
+		,@whereClause AS NVARCHAR(MAX) = ' '
+		,@orderBy AS NVARCHAR(MAX)
+
+	IF(@start <> '' AND @end <> '')
+	BEGIN
+		SELECT @cols = STUFF((SELECT ',' + QUOTENAME([Date]) 
+							FROM WeeklySummaryDatapoint
+							WHERE [Date] BETWEEN CAST(@start AS DATE) AND CAST(@end AS DATE)
+							GROUP BY [Date]
+							ORDER BY [Date]
+					FOR XML PATH(''), TYPE
+					).value('.', 'NVARCHAR(MAX)') 
+				,1,1,'')
+	END
+	ELSE
+	BEGIN
+		SELECT @cols = STUFF((SELECT ',' + QUOTENAME([Date]) 
+							FROM WeeklySummaryDatapoint
+							WHERE [Date] BETWEEN DATEADD(yy, DATEDIFF(yy, 0, GETDATE()), 0) AND DATEADD(MONTH,12,GETDATE())
+							GROUP BY [Date]
+							ORDER BY [Date]
+					FOR XML PATH(''), TYPE
+					).value('.', 'NVARCHAR(MAX)') 
+				,1,1,'')
+	END
+		
+	IF(@includeDatapoint=1)
+	BEGIN
+		SET @select = '
+				SELECT a.DatapointID,l.ID LobID,l.Name [Lob], d.Name [Datapoint],' + @cols + '
+				FROM (
+					SELECT *
+					FROM
+					(
+						SELECT w.SiteID,w.CampaignID,w.LobID,w.datapointid,w.[Date],w.[Data] from WeeklySummaryDatapoint w
+						INNER JOIN [Site] s ON s.ID=w.SiteID
+						INNER JOIN [Campaign] c ON c.ID=w.CampaignID
+						INNER JOIN [LoB] l ON l.ID=w.LoBID
+						WHERE 1=1 AND s.Active=1 AND c.Active=1 AND l.Active=1
+					 ) x		
+					PIVOT
+					(
+						MAX(Data)
+						FOR [Date] IN ('+ @cols +')
+					)p
+				) A
+				INNER JOIN SummaryDatapoint d ON d.ID=A.DatapointID
+				INNER JOIN Lob l ON l.ID=A.LobID
+				WHERE 1=1 '
+	END
+	ELSE
+	BEGIN
+		SET @select = '
+				SELECT ' + @cols + '
+				FROM (
+					SELECT *
+					FROM
+					(
+						SELECT w.SiteID,w.CampaignID,w.LobID,w.datapointid,w.[Date],w.[Data] from WeeklySummaryDatapoint w
+						INNER JOIN [Site] s ON s.ID=w.SiteID
+						INNER JOIN [Campaign] c ON c.ID=w.CampaignID
+						INNER JOIN [LoB] l ON l.ID=w.LoBID
+						WHERE 1=1 AND s.Active=1 AND c.Active=1 AND l.Active=1
+					) x		
+					PIVOT
+					(
+						MAX(Data)
+						FOR [Date] IN ('+ @cols +')
+					)p
+				) A
+				INNER JOIN SummaryDatapoint d ON d.ID=A.DatapointID
+				INNER JOIN Lob l ON l.ID=A.LobID
+				WHERE 1=1 '
+	END
+	
+	IF(@campaignID != '')
+	BEGIN
+		SET @whereClause = @whereClause + ' AND A.CampaignID=' + @campaignID
+	END	
+
+	IF(@siteID != '')
+	BEGIN
+		SET @whereClause = @whereClause + ' AND a.SiteID=' + @siteID
+	END	
+
+	IF(@lobid != '')
+	BEGIN
+		SET @whereClause = @whereClause + ' AND a.LoBID=' + @lobid
+	END	
+
+	SET @orderBy = ' ORDER BY l.Name,d.SortOrder'
+	SET @query = @select + @whereClause + @orderBy
+
+	EXECUTE(@query);
+END
+GO
+PRINT N'Update complete.';
+
+
+GO
+/******************************
+** File: Buildscript_1.00.073.sql
+** Name: Buildscript_1.00.073
+** Auth: McNiel Viray
+** Date: 13 October 2017
+**************************
+** Change History
+**************************
+** modify [wfmpcp_GetAssumptionsHeadcount_sp] by changing the where condition on site,campaign and lob
+** modify [wfmpcp_GetStaffPlanner_sp] by changing the where condition on site,campaign and lob
+** modify  [wfmpcp_GetSummary1_sp] by changing the where condition on site,campaign and lob
+*******************************/
+USE WFMPCP
+GO
+
+
+PRINT N'Altering [dbo].[wfmpcp_GetAssumptionsHeadcount_sp]...';
+
+
+GO
+ALTER PROCEDURE [dbo].[wfmpcp_GetAssumptionsHeadcount_sp]
+	@lobid AS NVARCHAR(MAX)='',
+	@start AS NVARCHAR(MAX)='',
+	@end AS NVARCHAR(MAX)='',	
+	@includeDatapoint BIT = 1,
+	@tablename AS NVARCHAR(MAX)='WeeklyAHDatapoint',
+	@segmentcategoryid  AS NVARCHAR(MAX)='',
+	@segmentid  AS NVARCHAR(MAX)='',
+	@siteID AS NVARCHAR(MAX)='',
+	@campaignID AS NVARCHAR(MAX)=''
+AS
+BEGIN
+	DECLARE @cols AS NVARCHAR(MAX)
+		,@query  AS NVARCHAR(MAX)
+		,@select  AS NVARCHAR(MAX)
+		,@whereClause AS NVARCHAR(MAX) = ' '
+		,@orderBy AS NVARCHAR(MAX)
+		,@updateLobID BIGINT = NULL
+		,@pivotWhere AS NVARCHAR(MAX)=' '
+
+	IF(@lobid != '')
+	BEGIN
+		SET @updateLobID = CAST(@lobid AS BIGINT)
+	END
+
+	IF(@start <> '' AND @end <> '')
+	BEGIN
+		SELECT @cols = STUFF((SELECT ',' + QUOTENAME([Date]) 
+							FROM WeeklyAHDatapoint
+							WHERE [Date] BETWEEN CAST(@start AS DATE) AND CAST(@end AS DATE)
+							GROUP BY [Date]
+							ORDER BY [Date]
+					FOR XML PATH(''), TYPE
+					).value('.', 'NVARCHAR(MAX)') 
+				,1,1,'')
+
+		UPDATE WeeklyAHDatapoint
+			SET [Data]=
+			CASE DatapointID 
+				WHEN 1 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 2 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 3 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) 
+				WHEN 4 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 5 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 6 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) 
+				WHEN 7 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) 
+				WHEN 8 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) 
+				WHEN 9 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 10 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 11 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 12 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + '%'
+				WHEN 13 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) 
+				WHEN 14 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 15 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 16 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 17 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 18 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 19 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 20 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 21 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 22 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 23 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 24 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 25 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 26 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 27 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 28 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 29 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 30 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 31 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 32 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 33 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 34 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 35 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 36 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 37 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 38 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 39 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 40 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 41 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 42 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 43 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 44 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 45 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 46 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 47 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 48 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 49 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 50 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 51 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 52 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 53 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 54 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 55 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 56 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 57 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 58 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 59 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 60 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 61 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 62 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 63 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 64 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 65 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 66 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 67 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 68 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 69 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 70 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 71 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 72 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 73 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 74 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 75 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 76 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 77 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 78 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 79 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 80 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 81 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 82 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 83 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 84 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 85 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 86 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 87 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 91 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 92 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 93 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 94 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 95 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 96 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 97 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 98 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 99 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 100 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 101 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 102 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 103 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 104 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 105 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 106 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 107 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 108 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 109 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 110 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 111 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 112 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 113 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 114 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 115 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 116 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 117 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				ELSE [Data]	END
+			WHERE ((LoBID=@updateLobID) OR (@updateLobID IS NULL))
+				AND SiteID=CAST(@siteID AS BIGINT)
+				AND CampaignID=CAST(@campaignID AS BIGINT)
+			AND [Date] BETWEEN CAST(@start AS DATE) AND CAST(@end AS DATE)
+	END
+	ELSE
+	BEGIN
+		SELECT @cols = STUFF((SELECT ',' + QUOTENAME([Date]) 
+							FROM WeeklyAHDatapoint
+							WHERE [Date] BETWEEN DATEADD(yy, DATEDIFF(yy, 0, GETDATE()), 0) AND DATEADD(MONTH,12,GETDATE())
+							GROUP BY [Date]
+							ORDER BY [Date]
+					FOR XML PATH(''), TYPE
+					).value('.', 'NVARCHAR(MAX)') 
+				,1,1,'')
+
+		UPDATE WeeklyAHDatapoint
+			SET [Data]=
+			CASE DatapointID 
+				WHEN 1 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 2 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 3 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) 
+				WHEN 4 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 5 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 6 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) 
+				WHEN 7 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) 
+				WHEN 8 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) 
+				WHEN 9 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 10 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 11 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 12 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + '%'
+				WHEN 13 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) 
+				WHEN 14 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 15 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 16 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 17 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 18 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 19 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 20 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 21 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 22 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 23 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 24 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 25 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 26 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 27 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 28 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 29 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 30 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 31 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 32 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 33 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 34 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 35 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 36 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 37 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 38 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 39 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 40 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 41 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 42 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 43 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 44 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 45 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 46 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 47 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 48 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 49 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 50 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 51 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 52 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 53 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 54 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 55 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 56 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 57 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 58 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 59 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 60 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 61 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 62 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 63 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 64 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 65 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 66 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 67 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 68 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 69 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 70 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 71 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 72 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 73 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 74 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 75 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 76 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 77 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 78 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 79 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 80 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 81 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 82 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 83 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 84 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 85 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 86 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 87 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 91 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 92 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 93 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 94 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 95 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 96 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 97 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 98 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 99 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 100 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 101 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 102 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 103 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 104 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 105 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX)) + ' %'
+				WHEN 106 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 107 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 108 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 109 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 110 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 111 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 112 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 113 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 114 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 115 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 116 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				WHEN 117 THEN CAST(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)) AS NVARCHAR(MAX))
+				ELSE [Data]	END
+			WHERE ((LoBID=@updateLobID) OR (@updateLobID IS NULL))
+				AND SiteID=CAST(@siteID AS BIGINT)
+				AND CampaignID=CAST(@campaignID AS BIGINT)
+			AND [Date] BETWEEN DATEADD(yy, DATEDIFF(yy, 0, GETDATE()), 0) AND DATEADD(MONTH,12,GETDATE())
+	END
+	
+	IF(@lobid != '')
+	BEGIN
+		SET @pivotWhere = @pivotWhere + ' AND w.LoBID=' + @lobid
+	END	
+
+	IF(@siteID != '')
+	BEGIN
+		SET @pivotWhere = @pivotWhere + ' AND w.SiteID=' + @siteID
+	END	
+
+	IF(@campaignID != '')
+	BEGIN
+		SET @pivotWhere = @pivotWhere + ' AND w.CampaignID=' + @campaignID
+	END	
+		
+	IF(@includeDatapoint=1)
+	BEGIN
+		SET @select = '
+				SELECT s.ID SegmentID, d.ID DatapointID, s.Name Segment, d.Name [Datapoint],' + @cols + '
+				FROM (
+					SELECT *
+					FROM
+					(
+						SELECT w.SiteID,w.CampaignID,w.LobID,w.datapointid,w.[Date],w.Data from ' + @tablename + 
+					' w 
+						INNER JOIN [Site] s ON s.ID=w.SiteID
+						INNER JOIN [Campaign] c ON c.ID=w.CampaignID
+						INNER JOIN [LoB] l ON l.ID=w.LoBID	
+						WHERE 1=1 AND s.Active=1 AND c.Active=1 AND l.Active=1  ' + @pivotWhere + ' 	
+					) x		
+					PIVOT
+					(
+						MAX(Data)
+						FOR [Date] IN ('+ @cols +')
+					)p
+				) A
+				INNER JOIN Datapoint d ON d.ID=A.DatapointID
+				INNER JOIN Segment s ON s.ID=d.SegmentID
+				INNER JOIN SegmentCategory sc ON sc.ID=s.SegmentCategoryID
+				WHERE 1=1 '
+	END
+	ELSE
+	BEGIN
+		SET @select = '
+				SELECT ' + @cols + '
+				FROM (
+					SELECT *
+					FROM
+					(
+						SELECT w.SiteID,w.CampaignID,w.LobID,w.datapointid,w.[Date],w.Data from ' + @tablename + 
+					' w 
+						INNER JOIN [Site] s ON s.ID=w.SiteID
+						INNER JOIN [Campaign] c ON c.ID=w.CampaignID
+						INNER JOIN [LoB] l ON l.ID=w.LoBID	
+						WHERE 1=1 AND s.Active=1 AND c.Active=1 AND l.Active=1  ' + @pivotWhere + ' 	
+					) x		
+					PIVOT
+					(
+						MAX(Data)
+						FOR [Date] IN ('+ @cols +')
+					)p
+				) A
+				INNER JOIN Datapoint d ON d.ID=A.DatapointID
+				INNER JOIN Segment s ON s.ID=d.SegmentID
+				INNER JOIN SegmentCategory sc ON sc.ID=s.SegmentCategoryID
+				WHERE 1=1 '
+	END
+
+	IF(@segmentcategoryid != '')
+	BEGIN
+		SET @whereClause = @whereClause + ' AND s.SegmentCategoryID=' + @segmentcategoryid
+	END
+
+	IF(@segmentid != '')
+	BEGIN
+		SET @whereClause = @whereClause + ' AND s.ID=' + @segmentid
+	END
+	
+	SET @orderBy = ' ORDER BY sc.SortOrder,s.SortOrder,d.SortOrder'
+	SET @query = @select + @whereClause + @orderBy
+
+	EXECUTE(@query);
+END
+GO
+PRINT N'Altering [dbo].[wfmpcp_GetStaffPlanner_sp]...';
+
+
+GO
+ALTER PROCEDURE [dbo].[wfmpcp_GetStaffPlanner_sp]
+	@lobid AS NVARCHAR(MAX)='',
+	@start AS NVARCHAR(MAX)='',
+	@end AS NVARCHAR(MAX)='',	
+	@includeDatapoint BIT = 1,
+	@segmentid  AS NVARCHAR(MAX)='',
+	@siteID AS NVARCHAR(MAX)='',
+	@campaignID AS NVARCHAR(MAX)=''
+AS
+BEGIN
+	DECLARE @cols AS NVARCHAR(MAX)
+		,@query  AS NVARCHAR(MAX)
+		,@select  AS NVARCHAR(MAX)
+		,@whereClause AS NVARCHAR(MAX) = ' '
+		,@orderBy AS NVARCHAR(MAX)
+		,@updateLobID BIGINT = NULL
+		,@pivotWhere AS NVARCHAR(MAX)=' '
+
+	IF(@lobid != '')
+	BEGIN
+		SET @updateLobID = CAST(@lobid AS BIGINT)
+	END
+
+	IF(@start <> '' AND @end <> '')
+	BEGIN
+		SELECT @cols = STUFF((SELECT ',' + QUOTENAME([Date]) 
+							FROM WeeklyStaffDatapoint
+							WHERE [Date] BETWEEN CAST(@start AS DATE) AND CAST(@end AS DATE)
+							GROUP BY [Date]
+							ORDER BY [Date]
+					FOR XML PATH(''), TYPE
+					).value('.', 'NVARCHAR(MAX)') 
+				,1,1,'')
+
+
+		UPDATE WeeklyStaffDatapoint
+		SET [Data]=
+				CASE DatapointID 
+					WHEN 1 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX))
+					WHEN 2 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX))
+					WHEN 3 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX))
+					WHEN 4 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 5 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX)) 
+					WHEN 6 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX)) 
+					WHEN 7 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 8 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 9 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 10 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 11 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 12 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 13 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) 
+					WHEN 14 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) 
+					WHEN 15 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX))
+					WHEN 16 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX))
+					WHEN 17 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) + ' %'
+					WHEN 18 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) + ' %'
+					WHEN 19 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) + ' %'
+					WHEN 20 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) + ' %'
+					WHEN 21 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX)) 
+					WHEN 22 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX)) 
+					ELSE CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(10)) END
+		--FROM WeeklyStaffDatapoint 
+		WHERE ((LoBID=@updateLobID) OR (@updateLobID IS NULL))
+			AND SiteID=CAST(@siteID AS BIGINT)
+			AND CampaignID=CAST(@campaignID AS BIGINT)
+			AND [Date] BETWEEN CAST(@start AS DATE) AND CAST(@end AS DATE)
+	END
+	ELSE
+	BEGIN
+		SELECT @cols = STUFF((SELECT ',' + QUOTENAME([Date]) 
+							FROM WeeklyStaffDatapoint
+							WHERE [Date] BETWEEN DATEADD(yy, DATEDIFF(yy, 0, GETDATE()), 0) AND DATEADD(MONTH,12,GETDATE())
+							GROUP BY [Date]
+							ORDER BY [Date]
+					FOR XML PATH(''), TYPE
+					).value('.', 'NVARCHAR(MAX)') 
+				,1,1,'')
+
+
+		UPDATE WeeklyStaffDatapoint
+		SET [Data]=
+				CASE DatapointID 
+					WHEN 1 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX))
+					WHEN 2 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX))
+					WHEN 3 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX))
+					WHEN 4 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 5 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX)) 
+					WHEN 6 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX)) 
+					WHEN 7 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 8 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 9 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 10 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 11 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 12 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX))
+					WHEN 13 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) 
+					WHEN 14 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) 
+					WHEN 15 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX))
+					WHEN 16 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX))
+					WHEN 17 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) + ' %'
+					WHEN 18 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) + ' %'
+					WHEN 19 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) + ' %'
+					WHEN 20 THEN CAST(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0) AS NVARCHAR(MAX)) + ' %'
+					WHEN 21 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX)) 
+					WHEN 22 THEN CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(MAX)) 
+					ELSE CAST(CEILING(ROUND(CAST(LTRIM(RTRIM(REPLACE(ISNULL(NULLIF(Data,''),'0'),'%',''))) AS DECIMAL(38,2)),0)) AS NVARCHAR(10)) END
+		--FROM WeeklyStaffDatapoint 
+		WHERE ((LoBID=@updateLobID) OR (@updateLobID IS NULL))
+			AND SiteID=CAST(@siteID AS BIGINT)
+			AND CampaignID=CAST(@campaignID AS BIGINT)
+			AND [Date] BETWEEN DATEADD(yy, DATEDIFF(yy, 0, GETDATE()), 0) AND DATEADD(MONTH,12,GETDATE())
+	END
+
+	IF(@lobid != '')
+	BEGIN
+		SET @pivotWhere = @pivotWhere + ' AND w.LoBID=' + @lobid
+	END	
+
+	IF(@siteID != '')
+	BEGIN
+		SET @pivotWhere = @pivotWhere + ' AND w.SiteID=' + @siteID
+	END	
+
+	IF(@campaignID != '')
+	BEGIN
+		SET @pivotWhere = @pivotWhere + ' AND w.CampaignID=' + @campaignID
+	END	
+		
+	IF(@includeDatapoint=1)
+	BEGIN
+		SET @select = '
+				SELECT s.ID SegmentID, d.ID DatapointID, s.Name Segment, d.Name [Datapoint],' + @cols + '
+				FROM (
+					SELECT *
+					FROM
+					(
+						SELECT w.SiteID,w.CampaignID,w.LobID,w.datapointid,w.[Date],w.[Data] from WeeklyStaffDatapoint w
+						INNER JOIN [Site] s ON s.ID=w.SiteID
+						INNER JOIN [Campaign] c ON c.ID=w.CampaignID
+						INNER JOIN [LoB] l ON l.ID=w.LoBID
+						WHERE 1=1 AND s.Active=1 AND c.Active=1 AND l.Active=1 ' + @pivotWhere + ' 
+					 ) x		
+					PIVOT
+					(
+						MAX(Data)
+						FOR [Date] IN ('+ @cols +')
+					)p
+				) A
+				INNER JOIN StaffDatapoint d ON d.ID=A.DatapointID
+				INNER JOIN StaffSegment s ON s.ID=d.SegmentID
+				WHERE 1=1 '
+	END
+	ELSE
+	BEGIN
+		SET @select = '
+				SELECT ' + @cols + '
+				FROM (
+					SELECT *
+					FROM
+					(
+						SELECT w.SiteID,w.CampaignID,w.LobID,w.datapointid,w.[Date],w.[Data] from WeeklyStaffDatapoint w
+						INNER JOIN [Site] s ON s.ID=w.SiteID
+						INNER JOIN [Campaign] c ON c.ID=w.CampaignID
+						INNER JOIN [LoB] l ON l.ID=w.LoBID
+						WHERE 1=1 AND s.Active=1 AND c.Active=1 AND l.Active=1 ' + @pivotWhere + ' 
+					) x		
+					PIVOT
+					(
+						MAX(Data)
+						FOR [Date] IN ('+ @cols +')
+					)p
+				) A
+				INNER JOIN StaffDatapoint d ON d.ID=A.DatapointID
+				INNER JOIN StaffSegment s ON s.ID=d.SegmentID
+				WHERE 1=1 '
+	END
+	
+	IF(@segmentid != '')
+	BEGIN
+		SET @whereClause = @whereClause + ' AND s.ID=' + @segmentid
+	END
+
+	SET @orderBy = ' ORDER BY s.SortOrder,d.SortOrder'
+	SET @query = @select + @whereClause + @orderBy
+
+	EXECUTE(@query);
+END
+GO
+PRINT N'Altering [dbo].[wfmpcp_GetSummary1_sp]...';
+
+
+GO
+ALTER PROCEDURE [dbo].[wfmpcp_GetSummary1_sp]
+	@campaignID AS NVARCHAR(MAX)='',
+	@start AS NVARCHAR(MAX)='',
+	@end AS NVARCHAR(MAX)='',	
+	@includeDatapoint BIT = 1,
+	@siteID AS NVARCHAR(MAX)='',
+	@lobid AS NVARCHAR(MAX)=''
+AS
+BEGIN
+	DECLARE @cols AS NVARCHAR(MAX)
+		,@query  AS NVARCHAR(MAX)
+		,@select  AS NVARCHAR(MAX)
+		,@whereClause AS NVARCHAR(MAX) = ' '
+		,@orderBy AS NVARCHAR(MAX)
+		,@pivotWhere AS NVARCHAR(MAX)=' '
+
+	IF(@start <> '' AND @end <> '')
+	BEGIN
+		SELECT @cols = STUFF((SELECT ',' + QUOTENAME([Date]) 
+							FROM WeeklySummaryDatapoint
+							WHERE [Date] BETWEEN CAST(@start AS DATE) AND CAST(@end AS DATE)
+							GROUP BY [Date]
+							ORDER BY [Date]
+					FOR XML PATH(''), TYPE
+					).value('.', 'NVARCHAR(MAX)') 
+				,1,1,'')
+	END
+	ELSE
+	BEGIN
+		SELECT @cols = STUFF((SELECT ',' + QUOTENAME([Date]) 
+							FROM WeeklySummaryDatapoint
+							WHERE [Date] BETWEEN DATEADD(yy, DATEDIFF(yy, 0, GETDATE()), 0) AND DATEADD(MONTH,12,GETDATE())
+							GROUP BY [Date]
+							ORDER BY [Date]
+					FOR XML PATH(''), TYPE
+					).value('.', 'NVARCHAR(MAX)') 
+				,1,1,'')
+	END
+		
+	IF(@lobid != '')
+	BEGIN
+		SET @pivotWhere = @pivotWhere + ' AND w.LoBID=' + @lobid
+	END	
+
+	IF(@siteID != '')
+	BEGIN
+		SET @pivotWhere = @pivotWhere + ' AND w.SiteID=' + @siteID
+	END	
+
+	IF(@campaignID != '')
+	BEGIN
+		SET @pivotWhere = @pivotWhere + ' AND w.CampaignID=' + @campaignID
+	END	
+
+	IF(@includeDatapoint=1)
+	BEGIN
+		SET @select = '
+				SELECT a.DatapointID,l.ID LobID,l.Name [Lob], d.Name [Datapoint],' + @cols + '
+				FROM (
+					SELECT *
+					FROM
+					(
+						SELECT w.SiteID,w.CampaignID,w.LobID,w.datapointid,w.[Date],w.[Data] from WeeklySummaryDatapoint w
+						INNER JOIN [Site] s ON s.ID=w.SiteID
+						INNER JOIN [Campaign] c ON c.ID=w.CampaignID
+						INNER JOIN [LoB] l ON l.ID=w.LoBID
+						WHERE 1=1 AND s.Active=1 AND c.Active=1 AND l.Active=1 ' + @pivotWhere + ' 
+					 ) x		
+					PIVOT
+					(
+						MAX(Data)
+						FOR [Date] IN ('+ @cols +')
+					)p
+				) A
+				INNER JOIN SummaryDatapoint d ON d.ID=A.DatapointID
+				INNER JOIN Lob l ON l.ID=A.LobID
+				WHERE 1=1 '
+	END
+	ELSE
+	BEGIN
+		SET @select = '
+				SELECT ' + @cols + '
+				FROM (
+					SELECT *
+					FROM
+					(
+						SELECT w.SiteID,w.CampaignID,w.LobID,w.datapointid,w.[Date],w.[Data] from WeeklySummaryDatapoint w
+						INNER JOIN [Site] s ON s.ID=w.SiteID
+						INNER JOIN [Campaign] c ON c.ID=w.CampaignID
+						INNER JOIN [LoB] l ON l.ID=w.LoBID
+						WHERE 1=1 AND s.Active=1 AND c.Active=1 AND l.Active=1 ' + @pivotWhere + ' 
+					) x		
+					PIVOT
+					(
+						MAX(Data)
+						FOR [Date] IN ('+ @cols +')
+					)p
+				) A
+				INNER JOIN SummaryDatapoint d ON d.ID=A.DatapointID
+				INNER JOIN Lob l ON l.ID=A.LobID
+				WHERE 1=1 '
+	END
+	
+	SET @orderBy = ' ORDER BY l.Name,d.SortOrder'
+	SET @query = @select + @whereClause + @orderBy
+
+	EXECUTE(@query);
+END
+GO
+UPDATE Module
+SET [Name]='Assumptions and Headcount'
+WHERE ID=13
+GO
+UPDATE Module
+SET [Name]='Summary'
+WHERE ID=16
+GO
+ALTER FUNCTION [dbo].[udf_GetPlannedFTE]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL
+	
+
+	SELECT @Value=[dbo].[udf_GetPlannedProdHrs](@SiteID,@CampaignID,@LobID,@Date)/40
+
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Update complete.';
+
+
+GO
+/******************************
+** File: Buildscript_1.00.074.sql
+** Name: Buildscript_1.00.074
+** Auth: McNiel Viray
+** Date: 25 October 2017
+**************************
+** Change History
+**************************
+** 
+*******************************/
+USE WFMPCP
+GO
+
+
+ALTER FUNCTION [dbo].[udf_GetCapacityToForecastPerc]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL
+	
+	-- (@ProjectedCapacity-ahc6)/ahc6	OLD
+	--SELECT @Value= ([dbo].[udf_GetProjectedCapacity](@SiteID,@CampaignID,@LobID,@Date)-[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,6))/NULLIF([dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,6),0)
+
+	--NEW 10.25.2017
+	--c19AHC/D10AHC
+	--ahc15/ahc6
+	SELECT @Value=NULLIF([dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,15),0)/NULLIF([dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,6),0)
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Altering [dbo].[udf_GetNetReqHours]...';
+
+
+GO
+ALTER FUNCTION [dbo].[udf_GetNetReqHours]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL
+		,@ah54 DECIMAL
+		,@ah17 DECIMAL
+		,@basehours DECIMAL
+
+		--Base Hours (Workload) / Derived Occupancy, Occupancy [from Assumptions and Headcount tab] / (1 - Projection based on Goal, Production Shrinkage [from the Assumptions and Headcount tab])
+		
+		--C11 Base Hours (Workload)
+		SELECT @basehours=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,56)
+		
+		--[['Assumptions and Headcount'!C58]] : Derived Occupancy, Occupancy [from Assumptions and Headcount tab]
+		SELECT @ah54=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,54)
+
+		--[['Assumptions and Headcount'!C21]]
+		SELECT @ah17=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,17)
+		
+		--'= C11 / [['Assumptions and Headcount'!C58]] / (1 - [['Assumptions and Headcount'!C21]])
+		SELECT @Value=(@BaseHours/NULLIF(@ah54,0))/NULLIF((1-@ah17),0)
+		
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Altering [dbo].[udf_GetPlannedProdHrs]...';
+
+
+GO
+ALTER FUNCTION [dbo].[udf_GetPlannedProdHrs]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	--C13
+	DECLARE @Value DECIMAL
+	
+
+	SELECT @Value=[dbo].[udf_GetProdProdHrs](@SiteID,@CampaignID,@LobID,@Date)--C14
+		+[dbo].[udf_GetSMEProdHrs](@SiteID,@CampaignID,@LobID,@Date)--C15
+		+[dbo].[udf_NestingProdHrs](@SiteID,@CampaignID,@LobID,@Date)--C16
+
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Altering [dbo].[udf_GetProjectedCapacity]...';
+
+
+GO
+ALTER FUNCTION [dbo].[udf_GetProjectedCapacity]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL
+	
+	--(@ProdProdHrs*3600/ahc5)+(@SMEProdHrs*3600/ahc5)
+	-- added formula (10.25.2017)
+	-- + (@NestingProdHrs*3600/ahc100) 
+	SELECT @Value=([dbo].[udf_GetProdProdHrs](@SiteID,@CampaignID,@LobID,@Date)*3600/NULLIF([dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,5),0))
+				+([dbo].[udf_GetSMEProdHrs](@SiteID,@CampaignID,@LobID,@Date)*3600/NULLIF([dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,5),0))
+				+([dbo].[udf_GetSMEProdHrs](@SiteID,@CampaignID,@LobID,@Date)*3600/NULLIF([dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,100),0))
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Altering [dbo].[udf_GetRequiredHC]...';
+
+
+GO
+ALTER FUNCTION [dbo].[udf_GetRequiredHC]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL
+		,@ahc61 DECIMAL
+		,@netReqHours DECIMAL
+		-- Net Required Hours / 40 * Derived Scheduled Constraints [from Assumptions and Headcount tab]
+
+		SELECT @netReqHours=[dbo].[udf_GetNetReqHours](@SiteID,@CampaignID,@LobID,@Date)
+		
+		SELECT @ahc61=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,61)
+				
+		SELECT @Value=(@netReqHours/40)*@ahc61
+		
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Altering [dbo].[udf_GetPlannedFTE]...';
+
+
+GO
+ALTER FUNCTION [dbo].[udf_GetPlannedFTE]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL
+	
+	--C13/40
+	SELECT @Value=[dbo].[udf_GetPlannedProdHrs](@SiteID,@CampaignID,@LobID,@Date)/40
+
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Altering [dbo].[wfmpcp_SaveWeeklyAHDatapointDatatable_sp]...';
+
+
+GO
+ALTER PROCEDURE [dbo].[wfmpcp_SaveWeeklyAHDatapointDatatable_sp]
+	@WeeklyDatapointTableType [dbo].[WeeklyDatapointTableType] READONLY
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @trancount INT;
+    SET @trancount = @@trancount;
+	BEGIN TRY
+		BEGIN TRANSACTION
+		--UPDATE FIRST Related Data
+		UPDATE w
+		SET w.[Data]=wt.DataValue,
+			w.ModifiedBy=wt.UserName,
+			w.DateModified=wt.DateModified
+		FROM WeeklyAHDatapoint w
+		INNER JOIN @WeeklyDatapointTableType wt ON wt.DatapointID=w.DatapointID	
+			AND wt.[Date]=w.[Date]
+			AND wt.LoBID=w.LoBID
+			AND wt.SiteID=w.SiteID
+			AND wt.CampaignID=w.CampaignID
+
+		--cascade to remaining data.
+
+		DECLARE @Date DATE
+
+		SELECT @Date = MAX([Date]) FROM @WeeklyDatapointTableType
+		DECLARE @tbl AS TABLE
+		(
+			DatapointID BIGINT,
+			SiteID BIGINT,
+			CampaignID BIGINT,
+			LobID BIGINT,
+			DataValue NVARCHAR(250),
+			DateMofidifed DATETIME,
+			ModifiedBy NVARCHAR(50)
+		)
+
+		INSERT INTO @tbl(DatapointID,LobID,DataValue,DateMofidifed,ModifiedBy,SiteID,CampaignID)
+		SELECT DatapointID,LoBID,DataValue,DateModified,UserName,SiteID,CampaignID
+		FROM @WeeklyDatapointTableType
+		WHERE [Date]=@Date
+
+		UPDATE w
+		SET w.[Data]=t.DataValue
+			,w.ModifiedBy=t.ModifiedBy
+			,w.DateModified=t.DateMofidifed
+		FROM WeeklyAHDatapoint w
+		INNER JOIN @tbl t ON t.DatapointID=w.DatapointID
+			AND t.LobID=w.LoBID
+			AND t.SiteID=w.SiteID
+			AND t.CampaignID=w.CampaignID
+		WHERE w.[Date]>@Date
+
+		--*****************************************
+		-- CREATE AND COMPUTE WeeklyStaffDatapoint*
+		--*****************************************
+		--check if WeeklyStaffDatapoint is empty
+		DECLARE @LobID BIGINT=0
+			,@CampaignID BIGINT=0
+			,@SiteID BIGINT=0
+			,@Date2 DATE
+			,@DateModified DATETIME
+			,@Username NVARCHAR(20)
+
+		--SELECT DISTINCT @LobID=LoBID 
+		--	,@DateModified=DateModified
+		--	,@Username=Username
+		--FROM @WeeklyDatapointTableType
+		
+		--SELECT @CampaignID=CampaignID FROM LoB WHERE ID=@LobID
+
+		SELECT TOP 1 @LobID=w.LoBID
+			,@CampaignID=w.CampaignID 
+			,@SiteID=w.SiteID
+			,@Username=w.UserName
+			,@DateModified=w.DateModified
+		FROM @WeeklyDatapointTableType w
+		--INNER JOIN LoB l ON l.ID=w.LoBID	
+
+		--xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+		--Set up and compute weeklystaffdatapoint
+		DECLARE @StaffDatapoint AS TABLE
+		(
+			[Date] DATE
+			,SiteID BIGINT
+			,CampaignID BIGINT
+			,LobID BIGINT	
+			,RequiredHC DECIMAL--1
+			,CurrentHC DECIMAL--2
+			,ExcessDeficitHC DECIMAL--3
+			,RequiredFTE DECIMAL--4
+			,PlannedFTE DECIMAL--5
+			,TeleoptiRequiredFTE DECIMAL--6
+			,ExcessDeficitFTE DECIMAL--7
+			,BaseHours DECIMAL--8
+			,NetReqHours DECIMAL--9
+			,PlannedProdHrs DECIMAL--10
+			,ProdProdHrs DECIMAL--11
+			,SMEProdHrs DECIMAL--12
+			,NestingProdHrs DECIMAL--13
+			,PlannedTrainingHrs DECIMAL--14
+			,RequiredVolFTE DECIMAL--15
+			,ProjectedCapacity DECIMAL--16
+			,CapacityToForecastPerc DECIMAL--17				
+			,ActualToForecastPerc DECIMAL--18
+			,AnsweredToForecastPerc DECIMAL--19
+			,AnsweredToCapacityPerc DECIMAL--20
+			,BillableHC DECIMAL--21				
+			,CurrentBillableHC DECIMAL--22
+			,BillableExcessDeficit DECIMAL--23
+		)
+		INSERT INTO @StaffDatapoint
+			SELECT  
+				DISTINCT(w.[Date]) 
+				,w.SiteID
+				,w.CampaignID
+				,w.LoBID
+				,[dbo].[udf_GetRequiredHC](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--3
+				,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],69)
+				,[dbo].[udf_GetExcessDeficitHC](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--4
+				,[dbo].[udf_GetRequiredFTE](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--5
+				,[dbo].[udf_GetPlannedFTE](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--10
+				,0
+				,[dbo].[udf_GetExcessDeficitFTE](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--11
+				,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],56) --1
+				,[dbo].[udf_GetNetReqHours](w.SiteID,w.CampaignID,w.LoBID,w.[Date]) --2
+				,[dbo].[udf_GetPlannedProdHrs](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--9
+				,[dbo].[udf_GetProdProdHrs](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--6
+				,[dbo].[udf_GetSMEProdHrs](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--7
+				,[dbo].[udf_NestingProdHrs](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--8
+				,0
+				,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],6)
+				,[dbo].[udf_GetProjectedCapacity](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--12
+				,[dbo].[udf_GetCapacityToForecastPerc](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--13
+				,[dbo].[udf_GetActualToForecastPerc](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--14
+				,[dbo].[udf_GetAnsweredToForecastPerc](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--15
+				,[dbo].[udf_GetAnsweredToCapacityPerc](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--16
+				,[dbo].[udf_GetBillableHC](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--17
+				,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],66)
+				,[dbo].[udf_GetBillableExcessDeficit](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--18
+			FROM @WeeklyDatapointTableType w
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.RequiredHC,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=1
+		
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.CurrentHC,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=2
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.ExcessDeficitHC,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=3
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.RequiredFTE,0) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=4
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.PlannedFTE,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=5
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.TeleoptiRequiredFTE,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=6
+		
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.ExcessDeficitFTE,0) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=7
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.BaseHours,0) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=8
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.NetReqHours,0) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=9
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.PlannedProdHrs,0) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=10
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.ProdProdHrs,0) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=11
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.SMEProdHrs,0) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=12
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.NestingProdHrs,0) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=13
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.PlannedTrainingHrs,0) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=14
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.RequiredVolFTE,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=15
+		
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.ProjectedCapacity,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=16
+		
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.CapacityToForecastPerc,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=17
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.ActualToForecastPerc,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=18
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.AnsweredToForecastPerc,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=19
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.AnsweredToCapacityPerc,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=20
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.BillableHC,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=21
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.CurrentBillableHC,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=22
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.BillableExcessDeficit,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=23
+
+		--xxxxxxx
+		--CASCADE DATA 
+		--xxxxxxx
+		DELETE FROM @tbl
+		INSERT INTO @tbl(DatapointID,LobID,DataValue,DateMofidifed,ModifiedBy,SiteID,CampaignID)
+		SELECT DatapointID,LobID,Data,@DateModified,@Username,SiteID,CampaignID
+		FROM WeeklyStaffDatapoint 
+		WHERE [Date]=@Date 
+			AND LobID=@LobID 
+			AND SiteID=@SiteID 
+			AND CampaignID=@CampaignID
+
+
+		UPDATE w
+		SET w.[Data]=t.DataValue
+			,w.ModifiedBy=t.ModifiedBy
+			,w.DateModified=t.DateMofidifed
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @tbl t ON t.DatapointID=w.DatapointID
+			AND t.LobID=w.LoBID
+			AND t.SiteID=w.SiteID
+			AND t.CampaignID=w.CampaignID
+		WHERE w.[Date]>@Date
+
+		--end set up and compute weeklystaffdatapoint
+		--xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+
+
+		--*****************************************
+		-- CREATE AND COMPUTE WeeklyHiringDatapoint*
+		--*****************************************
+		DECLARE @HiringDatapoint AS TABLE(
+			[Date] DATE
+			,SiteID BIGINT
+			,CampaignID BIGINT
+			,LobID BIGINT	
+			,NewCapacity NVARCHAR(250)
+			,AttritionBackfill NVARCHAR(250)
+		)
+
+		INSERT INTO @HiringDatapoint
+		SELECT 
+			DISTINCT(w.[Date]) 
+			,w.SiteID
+			,w.CampaignID
+			,w.LoBID
+			,CAST(CEILING([dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],92)) AS NVARCHAR(250))
+			,CAST(CEILING([dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],93)) AS NVARCHAR(250))
+		FROM @WeeklyDatapointTableType w
+
+		UPDATE w
+		SET w.[Data]=NewCapacity
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyHiringDatapoint w
+		INNER JOIN @HiringDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=1
+
+		UPDATE w
+		SET w.[Data]=AttritionBackfill
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyHiringDatapoint w
+		INNER JOIN @HiringDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=2
+
+		--xxxxxxx
+		--CASCADE DATA (hiring)
+		--xxxxxxx
+		DELETE FROM @tbl
+		INSERT INTO @tbl(DatapointID,LobID,DataValue,DateMofidifed,ModifiedBy,SiteID,CampaignID)
+		SELECT DatapointID,LobID,[Data],@DateModified,@Username,SiteID,CampaignID
+		FROM WeeklyHiringDatapoint 
+		WHERE [Date]=@Date 
+			AND LobID=@LobID 
+			AND SiteID=@SiteID
+			AND CampaignID=@CampaignID
+
+
+		UPDATE w
+		SET w.[Data]=t.DataValue
+			,w.ModifiedBy=t.ModifiedBy
+			,w.DateModified=t.DateMofidifed
+		FROM WeeklyHiringDatapoint w
+		INNER JOIN @tbl t ON t.DatapointID=w.DatapointID
+			AND t.LobID=w.LoBID
+			AND t.SiteID=w.SiteID
+			AND t.CampaignID=w.CampaignID
+		WHERE w.[Date]>@Date
+		--*****************************************
+		-- END CREATE AND COMPUTE WeeklyHiringDatapoint*
+		--*****************************************
+		
+
+		--***************************************
+		-- CREATE WeeklySummaryDatapoint
+		--***************************************
+		DECLARE @SummaryDatapoint AS TABLE(
+			[Date] DATE
+			,SiteID BIGINT
+			,CampaignID BIGINT
+			,LobID BIGINT	
+			,TargetServiceLevel DECIMAL--1
+			,ProjectedServiceLevel DECIMAL--2
+			,ActualServiceLevel DECIMAL--3
+			,VolumeForecast DECIMAL--4
+			,VolumeOffered DECIMAL--5
+			,VolumeHandled DECIMAL--6
+			,VolumeCapacity DECIMAL--7
+			,VolumeVarianceOfferedvsForecast DECIMAL--8
+			,TargetAHT DECIMAL--9
+			,ActualAHT DECIMAL--10
+			,AHTVariancePercentagetoGoal DECIMAL--11
+			,TargetProductionHours DECIMAL--12
+			,ActualProductionHours DECIMAL--13
+			,ProductionHoursVariance DECIMAL--14
+			,BillableHeadcount DECIMAL--15
+			,RequiredHeadcount DECIMAL--16
+			,ActualProductionHeadcount DECIMAL--17
+			,ActualNestingHeadcount DECIMAL--18
+			,ActualTrainingHeadcount DECIMAL--19
+			,BillableExcessDeficits DECIMAL--20
+			,RequiredExcessDeficits DECIMAL--21
+			,ProductionAttrition DECIMAL--22
+			,NestingTrainingAttrition DECIMAL--23
+			,NestingAttrition DECIMAL--24
+			,TrainingAttrition DECIMAL--25
+			,TotalTargetShrinkage DECIMAL--26
+			,TargetIncenterShrinkage DECIMAL--27
+			,TargetOutofcenterShrinkage DECIMAL--28
+			,TotalActualShrinkage DECIMAL--29
+			,ActualIncenterShrinkage DECIMAL--30
+			,ActualOutofcenterShrinkage DECIMAL--31
+			,ShrinkageVarianceTargetActual DECIMAL--32
+			,TargetOccupancy DECIMAL--33
+			,ActualOccupancy DECIMAL--34
+		)
+
+		INSERT INTO @SummaryDatapoint
+		SELECT 
+			DISTINCT(w.[Date]) 
+			,w.SiteID
+			,w.CampaignID
+			,w.LoBID
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],1)--1
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],2)--2
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],4)--3
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],6)--4
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],7)--5
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],8)--6
+			,[dbo].[udf_GetProjectedCapacity](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--7
+			,[dbo].[udf_GetCapacityToForecastPerc](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--8
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],9)--9
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],11)--10
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],12)--11
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],56)--12
+			,0--13
+			,0--14
+			,[dbo].[udf_GetBillableHC](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--15
+			,[dbo].[udf_GetRequiredHC](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--16
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],80)--17
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],81)--18
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],86)--19
+			,[dbo].[udf_GetBillableExcessDeficit](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--20
+			,[dbo].[udf_GetExcessDeficitHC](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--21
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],95)--22
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],99)+[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],103)--23
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],99)--24
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],103)--25
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],17)--26
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],18)--27
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],23)--28
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],35)--29
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],36)--30
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],41)--31
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],26)-[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],29)--32--Original as of 10.26.2017 [dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],17)+[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],18)--32
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],54)--33
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],55)--34
+		FROM @WeeklyDatapointTableType w
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.TargetServiceLevel,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=1
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.ProjectedServiceLevel,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=2
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.ActualServiceLevel,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=3
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.VolumeForecast,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=4
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.VolumeOffered,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=5
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.VolumeHandled,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=6
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.VolumeCapacity,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=7
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.VolumeVarianceOfferedvsForecast,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=8
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.TargetAHT,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=9
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.ActualAHT,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=10
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.AHTVariancePercentagetoGoal,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=11
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.TargetProductionHours,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=12
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.ActualProductionHours,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=13
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.ProductionHoursVariance,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=14
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.BillableHeadcount,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=15
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.RequiredHeadcount,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=16
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.ActualProductionHeadcount,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=17
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.ActualNestingHeadcount,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=18
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.ActualTrainingHeadcount,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=19
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.BillableExcessDeficits,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=20
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.RequiredExcessDeficits,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=21
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.ProductionAttrition,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=22
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.NestingTrainingAttrition,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=23
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.NestingAttrition,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=24
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.TrainingAttrition,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=25
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.TotalTargetShrinkage,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=26
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.TargetIncenterShrinkage,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=27
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.TargetOutofcenterShrinkage,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=28
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.TotalActualShrinkage,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=29
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.ActualIncenterShrinkage,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=30
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.ActualOutofcenterShrinkage,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=31
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.ShrinkageVarianceTargetActual,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=32
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.TargetOccupancy,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=33
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.ActualOccupancy,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=34
+
+		--CASCADE Summary data
+		DELETE FROM @tbl
+		INSERT INTO @tbl(DatapointID,LobID,DataValue,DateMofidifed,ModifiedBy,SiteID,CampaignID)
+		SELECT DatapointID,LobID,[Data],@DateModified,@Username,SiteID,CampaignID
+		FROM WeeklySummaryDatapoint 
+		WHERE [Date]=@Date 
+			AND LobID=@LobID 
+			AND SiteID=@SiteID
+			AND CampaignID=@CampaignID
+
+
+		UPDATE w
+		SET w.[Data]=t.DataValue
+			,w.ModifiedBy=t.ModifiedBy
+			,w.DateModified=t.DateMofidifed
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @tbl t ON t.DatapointID=w.DatapointID
+			AND t.LobID=w.LoBID
+			AND t.SiteID=w.SiteID
+			AND t.CampaignID=w.CampaignID
+		WHERE w.[Date]>@Date
+		--***************************************
+		-- END CREATE WeeklySummaryDatapoint
+		--***************************************
+
+		COMMIT TRANSACTION
+	END TRY
+	BEGIN CATCH
+	    DECLARE @error INT, @message VARCHAR(4000), @xstate INT;
+        SELECT @error = ERROR_NUMBER(), @message = ERROR_MESSAGE(), @xstate = XACT_STATE();
+        IF @xstate = -1
+             ROLLBACK TRANSACTION;
+        if @xstate = 1 and @trancount = 0
+             ROLLBACK TRANSACTION;
+        if @xstate = 1 and @trancount > 0
+            ROLLBACK TRANSACTION
+
+        RAISERROR ('[wfmpcp_SaveWeeklyAHDatapointDatatable_sp]: %d: %s', 16, 1, @error, @message) ;
+
+		--IF @@TRANCOUNT > 0
+		--	ROLLBACK TRANSACTION --RollBack in case of Error
+
+		--RAISERROR(15600,-1,-1,'[wfmpcp_SaveWeeklyAHDatapointDatatable_sp]')
+	END CATCH
+END
+GO
+PRINT N'Update complete.';
+
+
+GO
+/******************************
+** File: Buildscript_1.00.074.sql
+** Name: Buildscript_1.00.074
+** Auth: McNiel Viray
+** Date: 25 October 2017
+**************************
+** Change History
+**************************
+** 
+*******************************/
+USE WFMPCP
+GO
+
+
+ALTER FUNCTION [dbo].[udf_GetCapacityToForecastPerc]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL
+	
+	-- (@ProjectedCapacity-ahc6)/ahc6	OLD
+	--SELECT @Value= ([dbo].[udf_GetProjectedCapacity](@SiteID,@CampaignID,@LobID,@Date)-[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,6))/NULLIF([dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,6),0)
+
+	--NEW 10.25.2017
+	--c19AHC/D10AHC
+	--ahc15/ahc6
+	SELECT @Value=NULLIF([dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,15),0)/NULLIF([dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,6),0)
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Altering [dbo].[udf_GetNetReqHours]...';
+
+
+GO
+ALTER FUNCTION [dbo].[udf_GetNetReqHours]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL
+		,@ah54 DECIMAL
+		,@ah17 DECIMAL
+		,@basehours DECIMAL
+
+		--Base Hours (Workload) / Derived Occupancy, Occupancy [from Assumptions and Headcount tab] / (1 - Projection based on Goal, Production Shrinkage [from the Assumptions and Headcount tab])
+		
+		--C11 Base Hours (Workload)
+		SELECT @basehours=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,56)
+		
+		--[['Assumptions and Headcount'!C58]] : Derived Occupancy, Occupancy [from Assumptions and Headcount tab]
+		SELECT @ah54=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,54)
+
+		--[['Assumptions and Headcount'!C21]]
+		SELECT @ah17=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,17)
+		
+		--'= C11 / [['Assumptions and Headcount'!C58]] / (1 - [['Assumptions and Headcount'!C21]])
+		SELECT @Value=(@BaseHours/NULLIF(@ah54,0))/NULLIF((1-@ah17),0)
+		
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Altering [dbo].[udf_GetPlannedProdHrs]...';
+
+
+GO
+ALTER FUNCTION [dbo].[udf_GetPlannedProdHrs]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	--C13
+	DECLARE @Value DECIMAL
+	
+
+	SELECT @Value=[dbo].[udf_GetProdProdHrs](@SiteID,@CampaignID,@LobID,@Date)--C14
+		+[dbo].[udf_GetSMEProdHrs](@SiteID,@CampaignID,@LobID,@Date)--C15
+		+[dbo].[udf_NestingProdHrs](@SiteID,@CampaignID,@LobID,@Date)--C16
+
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Altering [dbo].[udf_GetProjectedCapacity]...';
+
+
+GO
+ALTER FUNCTION [dbo].[udf_GetProjectedCapacity]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL
+	
+	--(@ProdProdHrs*3600/ahc5)+(@SMEProdHrs*3600/ahc5)
+	-- added formula (10.25.2017)
+	-- + (@NestingProdHrs*3600/ahc100) 
+	SELECT @Value=([dbo].[udf_GetProdProdHrs](@SiteID,@CampaignID,@LobID,@Date)*3600/NULLIF([dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,5),0))
+				+([dbo].[udf_GetSMEProdHrs](@SiteID,@CampaignID,@LobID,@Date)*3600/NULLIF([dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,5),0))
+				+([dbo].[udf_GetSMEProdHrs](@SiteID,@CampaignID,@LobID,@Date)*3600/NULLIF([dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,100),0))
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Altering [dbo].[udf_GetRequiredHC]...';
+
+
+GO
+ALTER FUNCTION [dbo].[udf_GetRequiredHC]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL
+		,@ahc61 DECIMAL
+		,@netReqHours DECIMAL
+		-- Net Required Hours / 40 * Derived Scheduled Constraints [from Assumptions and Headcount tab]
+
+		SELECT @netReqHours=[dbo].[udf_GetNetReqHours](@SiteID,@CampaignID,@LobID,@Date)
+		
+		SELECT @ahc61=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,61)
+				
+		SELECT @Value=(@netReqHours/40)*@ahc61
+		
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Altering [dbo].[udf_GetPlannedFTE]...';
+
+
+GO
+ALTER FUNCTION [dbo].[udf_GetPlannedFTE]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL
+	
+	--C13/40
+	SELECT @Value=[dbo].[udf_GetPlannedProdHrs](@SiteID,@CampaignID,@LobID,@Date)/40
+
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Altering [dbo].[wfmpcp_SaveWeeklyAHDatapointDatatable_sp]...';
+
+
+GO
+ALTER PROCEDURE [dbo].[wfmpcp_SaveWeeklyAHDatapointDatatable_sp]
+	@WeeklyDatapointTableType [dbo].[WeeklyDatapointTableType] READONLY
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @trancount INT;
+    SET @trancount = @@trancount;
+	BEGIN TRY
+		BEGIN TRANSACTION
+		--UPDATE FIRST Related Data
+		UPDATE w
+		SET w.[Data]=wt.DataValue,
+			w.ModifiedBy=wt.UserName,
+			w.DateModified=wt.DateModified
+		FROM WeeklyAHDatapoint w
+		INNER JOIN @WeeklyDatapointTableType wt ON wt.DatapointID=w.DatapointID	
+			AND wt.[Date]=w.[Date]
+			AND wt.LoBID=w.LoBID
+			AND wt.SiteID=w.SiteID
+			AND wt.CampaignID=w.CampaignID
+
+		--cascade to remaining data.
+
+		DECLARE @Date DATE
+
+		SELECT @Date = MAX([Date]) FROM @WeeklyDatapointTableType
+		DECLARE @tbl AS TABLE
+		(
+			DatapointID BIGINT,
+			SiteID BIGINT,
+			CampaignID BIGINT,
+			LobID BIGINT,
+			DataValue NVARCHAR(250),
+			DateMofidifed DATETIME,
+			ModifiedBy NVARCHAR(50)
+		)
+
+		INSERT INTO @tbl(DatapointID,LobID,DataValue,DateMofidifed,ModifiedBy,SiteID,CampaignID)
+		SELECT DatapointID,LoBID,DataValue,DateModified,UserName,SiteID,CampaignID
+		FROM @WeeklyDatapointTableType
+		WHERE [Date]=@Date
+
+		UPDATE w
+		SET w.[Data]=t.DataValue
+			,w.ModifiedBy=t.ModifiedBy
+			,w.DateModified=t.DateMofidifed
+		FROM WeeklyAHDatapoint w
+		INNER JOIN @tbl t ON t.DatapointID=w.DatapointID
+			AND t.LobID=w.LoBID
+			AND t.SiteID=w.SiteID
+			AND t.CampaignID=w.CampaignID
+		WHERE w.[Date]>@Date
+
+		--*****************************************
+		-- CREATE AND COMPUTE WeeklyStaffDatapoint*
+		--*****************************************
+		--check if WeeklyStaffDatapoint is empty
+		DECLARE @LobID BIGINT=0
+			,@CampaignID BIGINT=0
+			,@SiteID BIGINT=0
+			,@Date2 DATE
+			,@DateModified DATETIME
+			,@Username NVARCHAR(20)
+
+		--SELECT DISTINCT @LobID=LoBID 
+		--	,@DateModified=DateModified
+		--	,@Username=Username
+		--FROM @WeeklyDatapointTableType
+		
+		--SELECT @CampaignID=CampaignID FROM LoB WHERE ID=@LobID
+
+		SELECT TOP 1 @LobID=w.LoBID
+			,@CampaignID=w.CampaignID 
+			,@SiteID=w.SiteID
+			,@Username=w.UserName
+			,@DateModified=w.DateModified
+		FROM @WeeklyDatapointTableType w
+		--INNER JOIN LoB l ON l.ID=w.LoBID	
+
+		--xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+		--Set up and compute weeklystaffdatapoint
+		DECLARE @StaffDatapoint AS TABLE
+		(
+			[Date] DATE
+			,SiteID BIGINT
+			,CampaignID BIGINT
+			,LobID BIGINT	
+			,RequiredHC DECIMAL--1
+			,CurrentHC DECIMAL--2
+			,ExcessDeficitHC DECIMAL--3
+			,RequiredFTE DECIMAL--4
+			,PlannedFTE DECIMAL--5
+			,TeleoptiRequiredFTE DECIMAL--6
+			,ExcessDeficitFTE DECIMAL--7
+			,BaseHours DECIMAL--8
+			,NetReqHours DECIMAL--9
+			,PlannedProdHrs DECIMAL--10
+			,ProdProdHrs DECIMAL--11
+			,SMEProdHrs DECIMAL--12
+			,NestingProdHrs DECIMAL--13
+			,PlannedTrainingHrs DECIMAL--14
+			,RequiredVolFTE DECIMAL--15
+			,ProjectedCapacity DECIMAL--16
+			,CapacityToForecastPerc DECIMAL--17				
+			,ActualToForecastPerc DECIMAL--18
+			,AnsweredToForecastPerc DECIMAL--19
+			,AnsweredToCapacityPerc DECIMAL--20
+			,BillableHC DECIMAL--21				
+			,CurrentBillableHC DECIMAL--22
+			,BillableExcessDeficit DECIMAL--23
+		)
+		INSERT INTO @StaffDatapoint
+			SELECT  
+				DISTINCT(w.[Date]) 
+				,w.SiteID
+				,w.CampaignID
+				,w.LoBID
+				,[dbo].[udf_GetRequiredHC](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--3
+				,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],69)
+				,[dbo].[udf_GetExcessDeficitHC](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--4
+				,[dbo].[udf_GetRequiredFTE](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--5
+				,[dbo].[udf_GetPlannedFTE](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--10
+				,0
+				,[dbo].[udf_GetExcessDeficitFTE](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--11
+				,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],56) --1
+				,[dbo].[udf_GetNetReqHours](w.SiteID,w.CampaignID,w.LoBID,w.[Date]) --2
+				,[dbo].[udf_GetPlannedProdHrs](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--9
+				,[dbo].[udf_GetProdProdHrs](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--6
+				,[dbo].[udf_GetSMEProdHrs](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--7
+				,[dbo].[udf_NestingProdHrs](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--8
+				,0
+				,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],6)
+				,[dbo].[udf_GetProjectedCapacity](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--12
+				,[dbo].[udf_GetCapacityToForecastPerc](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--13
+				,[dbo].[udf_GetActualToForecastPerc](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--14
+				,[dbo].[udf_GetAnsweredToForecastPerc](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--15
+				,[dbo].[udf_GetAnsweredToCapacityPerc](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--16
+				,[dbo].[udf_GetBillableHC](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--17
+				,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],66)
+				,[dbo].[udf_GetBillableExcessDeficit](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--18
+			FROM @WeeklyDatapointTableType w
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.RequiredHC,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=1
+		
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.CurrentHC,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=2
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.ExcessDeficitHC,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=3
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.RequiredFTE,0) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=4
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.PlannedFTE,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=5
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.TeleoptiRequiredFTE,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=6
+		
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.ExcessDeficitFTE,0) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=7
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.BaseHours,0) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=8
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.NetReqHours,0) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=9
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.PlannedProdHrs,0) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=10
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.ProdProdHrs,0) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=11
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.SMEProdHrs,0) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=12
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.NestingProdHrs,0) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=13
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.PlannedTrainingHrs,0) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=14
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.RequiredVolFTE,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=15
+		
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.ProjectedCapacity,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=16
+		
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.CapacityToForecastPerc,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=17
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.ActualToForecastPerc,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=18
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.AnsweredToForecastPerc,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=19
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.AnsweredToCapacityPerc,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=20
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.BillableHC,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=21
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.CurrentBillableHC,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=22
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.BillableExcessDeficit,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @StaffDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=23
+
+		--xxxxxxx
+		--CASCADE DATA 
+		--xxxxxxx
+		DELETE FROM @tbl
+		INSERT INTO @tbl(DatapointID,LobID,DataValue,DateMofidifed,ModifiedBy,SiteID,CampaignID)
+		SELECT DatapointID,LobID,Data,@DateModified,@Username,SiteID,CampaignID
+		FROM WeeklyStaffDatapoint 
+		WHERE [Date]=@Date 
+			AND LobID=@LobID 
+			AND SiteID=@SiteID 
+			AND CampaignID=@CampaignID
+
+
+		UPDATE w
+		SET w.[Data]=t.DataValue
+			,w.ModifiedBy=t.ModifiedBy
+			,w.DateModified=t.DateMofidifed
+		FROM WeeklyStaffDatapoint w
+		INNER JOIN @tbl t ON t.DatapointID=w.DatapointID
+			AND t.LobID=w.LoBID
+			AND t.SiteID=w.SiteID
+			AND t.CampaignID=w.CampaignID
+		WHERE w.[Date]>@Date
+
+		--end set up and compute weeklystaffdatapoint
+		--xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+
+
+		--*****************************************
+		-- CREATE AND COMPUTE WeeklyHiringDatapoint*
+		--*****************************************
+		DECLARE @HiringDatapoint AS TABLE(
+			[Date] DATE
+			,SiteID BIGINT
+			,CampaignID BIGINT
+			,LobID BIGINT	
+			,NewCapacity NVARCHAR(250)
+			,AttritionBackfill NVARCHAR(250)
+		)
+
+		INSERT INTO @HiringDatapoint
+		SELECT 
+			DISTINCT(w.[Date]) 
+			,w.SiteID
+			,w.CampaignID
+			,w.LoBID
+			,CAST(CEILING([dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],92)) AS NVARCHAR(250))
+			,CAST(CEILING([dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],93)) AS NVARCHAR(250))
+		FROM @WeeklyDatapointTableType w
+
+		UPDATE w
+		SET w.[Data]=NewCapacity
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyHiringDatapoint w
+		INNER JOIN @HiringDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=1
+
+		UPDATE w
+		SET w.[Data]=AttritionBackfill
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklyHiringDatapoint w
+		INNER JOIN @HiringDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=2
+
+		--xxxxxxx
+		--CASCADE DATA (hiring)
+		--xxxxxxx
+		DELETE FROM @tbl
+		INSERT INTO @tbl(DatapointID,LobID,DataValue,DateMofidifed,ModifiedBy,SiteID,CampaignID)
+		SELECT DatapointID,LobID,[Data],@DateModified,@Username,SiteID,CampaignID
+		FROM WeeklyHiringDatapoint 
+		WHERE [Date]=@Date 
+			AND LobID=@LobID 
+			AND SiteID=@SiteID
+			AND CampaignID=@CampaignID
+
+
+		UPDATE w
+		SET w.[Data]=t.DataValue
+			,w.ModifiedBy=t.ModifiedBy
+			,w.DateModified=t.DateMofidifed
+		FROM WeeklyHiringDatapoint w
+		INNER JOIN @tbl t ON t.DatapointID=w.DatapointID
+			AND t.LobID=w.LoBID
+			AND t.SiteID=w.SiteID
+			AND t.CampaignID=w.CampaignID
+		WHERE w.[Date]>@Date
+		--*****************************************
+		-- END CREATE AND COMPUTE WeeklyHiringDatapoint*
+		--*****************************************
+		
+
+		--***************************************
+		-- CREATE WeeklySummaryDatapoint
+		--***************************************
+		DECLARE @SummaryDatapoint AS TABLE(
+			[Date] DATE
+			,SiteID BIGINT
+			,CampaignID BIGINT
+			,LobID BIGINT	
+			,TargetServiceLevel DECIMAL--1
+			,ProjectedServiceLevel DECIMAL--2
+			,ActualServiceLevel DECIMAL--3
+			,VolumeForecast DECIMAL--4
+			,VolumeOffered DECIMAL--5
+			,VolumeHandled DECIMAL--6
+			,VolumeCapacity DECIMAL--7
+			,VolumeVarianceOfferedvsForecast DECIMAL--8
+			,TargetAHT DECIMAL--9
+			,ActualAHT DECIMAL--10
+			,AHTVariancePercentagetoGoal DECIMAL--11
+			,TargetProductionHours DECIMAL--12
+			,ActualProductionHours DECIMAL--13
+			,ProductionHoursVariance DECIMAL--14
+			,BillableHeadcount DECIMAL--15
+			,RequiredHeadcount DECIMAL--16
+			,ActualProductionHeadcount DECIMAL--17
+			,ActualNestingHeadcount DECIMAL--18
+			,ActualTrainingHeadcount DECIMAL--19
+			,BillableExcessDeficits DECIMAL--20
+			,RequiredExcessDeficits DECIMAL--21
+			,ProductionAttrition DECIMAL--22
+			,NestingTrainingAttrition DECIMAL--23
+			,NestingAttrition DECIMAL--24
+			,TrainingAttrition DECIMAL--25
+			,TotalTargetShrinkage DECIMAL--26
+			,TargetIncenterShrinkage DECIMAL--27
+			,TargetOutofcenterShrinkage DECIMAL--28
+			,TotalActualShrinkage DECIMAL--29
+			,ActualIncenterShrinkage DECIMAL--30
+			,ActualOutofcenterShrinkage DECIMAL--31
+			,ShrinkageVarianceTargetActual DECIMAL--32
+			,TargetOccupancy DECIMAL--33
+			,ActualOccupancy DECIMAL--34
+		)
+
+		INSERT INTO @SummaryDatapoint
+		SELECT 
+			DISTINCT(w.[Date]) 
+			,w.SiteID
+			,w.CampaignID
+			,w.LoBID
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],1)--1
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],2)--2
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],4)--3
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],6)--4
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],7)--5
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],8)--6
+			,[dbo].[udf_GetProjectedCapacity](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--7
+			,[dbo].[udf_GetCapacityToForecastPerc](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--8
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],9)--9
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],11)--10
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],12)--11
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],56)--12
+			,0--13
+			,0--14
+			,[dbo].[udf_GetBillableHC](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--15
+			,[dbo].[udf_GetRequiredHC](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--16
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],80)--17
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],81)--18
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],86)--19
+			,[dbo].[udf_GetBillableExcessDeficit](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--20
+			,[dbo].[udf_GetExcessDeficitHC](w.SiteID,w.CampaignID,w.LoBID,w.[Date])--21
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],95)--22
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],99)+[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],103)--23
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],99)--24
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],103)--25
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],17)--26
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],18)--27
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],23)--28
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],35)--29
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],36)--30
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],41)--31
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],26)-[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],29)--32--Original as of 10.26.2017 [dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],17)+[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],18)--32
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],54)--33
+			,[dbo].[udf_GetAHCDatapointValue](w.SiteID,w.CampaignID,w.LoBID,w.[Date],55)--34
+		FROM @WeeklyDatapointTableType w
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.TargetServiceLevel,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=1
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.ProjectedServiceLevel,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=2
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.ActualServiceLevel,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=3
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.VolumeForecast,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=4
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.VolumeOffered,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=5
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.VolumeHandled,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=6
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.VolumeCapacity,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=7
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.VolumeVarianceOfferedvsForecast,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=8
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.TargetAHT,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=9
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.ActualAHT,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=10
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.AHTVariancePercentagetoGoal,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=11
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.TargetProductionHours,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=12
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.ActualProductionHours,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=13
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.ProductionHoursVariance,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=14
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.BillableHeadcount,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=15
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.RequiredHeadcount,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=16
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.ActualProductionHeadcount,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=17
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.ActualNestingHeadcount,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=18
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.ActualTrainingHeadcount,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=19
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.BillableExcessDeficits,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=20
+
+		UPDATE w
+		SET w.[Data]=CAST(CEILING(ROUND(s.RequiredExcessDeficits,0)) AS NVARCHAR(250))
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=21
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.ProductionAttrition,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=22
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.NestingTrainingAttrition,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=23
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.NestingAttrition,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=24
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.TrainingAttrition,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=25
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.TotalTargetShrinkage,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=26
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.TargetIncenterShrinkage,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=27
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.TargetOutofcenterShrinkage,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=28
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.TotalActualShrinkage,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=29
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.ActualIncenterShrinkage,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=30
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.ActualOutofcenterShrinkage,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=31
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.ShrinkageVarianceTargetActual,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=32
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.TargetOccupancy,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=33
+
+		UPDATE w
+		SET w.[Data]=CAST(ROUND(s.ActualOccupancy,0) AS NVARCHAR(250)) + ' %'
+			,w.DateModified=@DateModified
+			,w.ModifiedBy=@Username
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @SummaryDatapoint s ON s.[Date]=w.[Date]
+			AND s.LobID=w.LoBID
+			AND s.SiteID=w.SiteID
+			AND s.CampaignID=w.CampaignID
+		WHERE w.DatapointID=34
+
+		--CASCADE Summary data
+		DELETE FROM @tbl
+		INSERT INTO @tbl(DatapointID,LobID,DataValue,DateMofidifed,ModifiedBy,SiteID,CampaignID)
+		SELECT DatapointID,LobID,[Data],@DateModified,@Username,SiteID,CampaignID
+		FROM WeeklySummaryDatapoint 
+		WHERE [Date]=@Date 
+			AND LobID=@LobID 
+			AND SiteID=@SiteID
+			AND CampaignID=@CampaignID
+
+
+		UPDATE w
+		SET w.[Data]=t.DataValue
+			,w.ModifiedBy=t.ModifiedBy
+			,w.DateModified=t.DateMofidifed
+		FROM WeeklySummaryDatapoint w
+		INNER JOIN @tbl t ON t.DatapointID=w.DatapointID
+			AND t.LobID=w.LoBID
+			AND t.SiteID=w.SiteID
+			AND t.CampaignID=w.CampaignID
+		WHERE w.[Date]>@Date
+		--***************************************
+		-- END CREATE WeeklySummaryDatapoint
+		--***************************************
+
+		COMMIT TRANSACTION
+	END TRY
+	BEGIN CATCH
+	    DECLARE @error INT, @message VARCHAR(4000), @xstate INT;
+        SELECT @error = ERROR_NUMBER(), @message = ERROR_MESSAGE(), @xstate = XACT_STATE();
+        IF @xstate = -1
+             ROLLBACK TRANSACTION;
+        if @xstate = 1 and @trancount = 0
+             ROLLBACK TRANSACTION;
+        if @xstate = 1 and @trancount > 0
+            ROLLBACK TRANSACTION
+
+        RAISERROR ('[wfmpcp_SaveWeeklyAHDatapointDatatable_sp]: %d: %s', 16, 1, @error, @message) ;
+
+		--IF @@TRANCOUNT > 0
+		--	ROLLBACK TRANSACTION --RollBack in case of Error
+
+		--RAISERROR(15600,-1,-1,'[wfmpcp_SaveWeeklyAHDatapointDatatable_sp]')
+	END CATCH
+END
+GO
+PRINT N'Update complete.';
+
+
+GO
+/******************************
+** File: Buildscript_1.00.075.sql
+** Name: Buildscript_1.00.075
+** Auth: McNiel Viray	
+** Date: 09 November 2017
+**************************
+** Change History
+**************************
+** Added DynamicFormula and SiteCampaignLoBFormula table
+** Rectify spelling of Module ID 26,28
+*******************************/
+USE WFMPCP
+
+
+GO
+PRINT N'Disabling all DDL triggers...'
+GO
+DISABLE TRIGGER ALL ON DATABASE
+GO
+PRINT N'Rename refactoring operation with key 507bede8-627e-492c-a385-4052816a95c3 is skipped, element [dbo].[SiteCampaignLobFormula].[Id] (SqlSimpleColumn) will not be renamed to ID';
+
+
+GO
+PRINT N'Rename refactoring operation with key 1d39bf04-b4ec-46bc-9c17-4126977582cb is skipped, element [dbo].[SiteCampaignLobFormula].[CampaingID] (SqlSimpleColumn) will not be renamed to CampaignID';
+
+
+GO
+PRINT N'Creating [dbo].[DynamicFormula]...';
+
+
+GO
+CREATE TABLE [dbo].[DynamicFormula] (
+    [ID]           BIGINT         IDENTITY (1, 1) NOT NULL,
+    [Name]         NVARCHAR (50)  NOT NULL,
+    [Description]  NVARCHAR (150) NULL,
+    [DateCreated]  DATETIME       NOT NULL,
+    [DateModified] DATETIME       NOT NULL,
+    [Active]       BIT            NOT NULL,
+    CONSTRAINT [PK_DynamicFormula_ID] PRIMARY KEY CLUSTERED ([ID] ASC)
+);
+
+
+GO
+PRINT N'Creating [dbo].[SiteCampaignLobFormula]...';
+
+
+GO
+CREATE TABLE [dbo].[SiteCampaignLobFormula] (
+    [ID]               BIGINT   IDENTITY (1, 1) NOT NULL,
+    [SiteID]           BIGINT   NOT NULL,
+    [CampaignID]       BIGINT   NOT NULL,
+    [LoBID]            BIGINT   NOT NULL,
+    [DynamicFormulaID] BIGINT   NOT NULL,
+    [DateCreated]      DATETIME NOT NULL,
+    [DateModified]     DATETIME NULL,
+    [Active]           BIT      NOT NULL,
+    CONSTRAINT [PK_SiteCampaignLobFormula_ID] PRIMARY KEY CLUSTERED ([ID] ASC)
+);
+
+
+GO
+PRINT N'Creating [dbo].[DF_DynamicFormula_DateCreated]...';
+
+
+GO
+ALTER TABLE [dbo].[DynamicFormula]
+    ADD CONSTRAINT [DF_DynamicFormula_DateCreated] DEFAULT GETDATE() FOR [DateCreated];
+
+
+GO
+PRINT N'Creating [dbo].[DF_DynamicFormula_Active]...';
+
+
+GO
+ALTER TABLE [dbo].[DynamicFormula]
+    ADD CONSTRAINT [DF_DynamicFormula_Active] DEFAULT (1) FOR [Active];
+
+
+GO
+PRINT N'Creating [dbo].[DF_SiteCampaignLoBFormula_DateCreated]...';
+
+
+GO
+ALTER TABLE [dbo].[SiteCampaignLobFormula]
+    ADD CONSTRAINT [DF_SiteCampaignLoBFormula_DateCreated] DEFAULT GETDATE() FOR [DateCreated];
+
+
+GO
+PRINT N'Creating [dbo].[DF_SiteCampaignLoBFormula_Active]...';
+
+
+GO
+ALTER TABLE [dbo].[SiteCampaignLobFormula]
+    ADD CONSTRAINT [DF_SiteCampaignLoBFormula_Active] DEFAULT (1) FOR [Active];
+
+
+GO
+-- Refactoring step to update target server with deployed transaction logs
+IF NOT EXISTS (SELECT OperationKey FROM [dbo].[__RefactorLog] WHERE OperationKey = '507bede8-627e-492c-a385-4052816a95c3')
+INSERT INTO [dbo].[__RefactorLog] (OperationKey) values ('507bede8-627e-492c-a385-4052816a95c3')
+IF NOT EXISTS (SELECT OperationKey FROM [dbo].[__RefactorLog] WHERE OperationKey = '1d39bf04-b4ec-46bc-9c17-4126977582cb')
+INSERT INTO [dbo].[__RefactorLog] (OperationKey) values ('1d39bf04-b4ec-46bc-9c17-4126977582cb')
+
+GO
+UPDATE [Module]
+SET [Name]='Campaign - Monthly Summary'
+WHERE ID=28
+GO
+UPDATE [Module]
+SET [Name]='Site - Monthly Summary'
+WHERE ID=26
+GO
+
+
+ALTER TABLE [dbo].[DynamicFormula] ALTER COLUMN [DateModified] DATETIME NULL;
+GO
+INSERT INTO DynamicFormula([Name],[Description])VALUES
+('DEFAULT','Default formula'),
+('ERLANG','FTE requirement per week based on Service Level and Service Time'),
+('STRAIGHT','Net FTE required straight line + occupancy'),
+('BILLABLE (Per Hour)','Based on Deliveroo UK calculation'),
+('BILLABLE (Per Unit)','Based on Uber calculation'),
+('BILLABLE (Per Minute','')
+GO
+
+PRINT N'Reenabling DDL triggers...'
+GO
+--ENABLE TRIGGER [tr_DDL_SchemaChangeLog] ON DATABASE
+GO
+PRINT N'Update complete.';
+
+
+GO
+
+/******************************
+** File: Buildscript_1.00.076.sql
+** Name: Buildscript_1.00.076
+** Auth: McNiel Viray
+** Date: 16 November 2017
+**************************
+** Change History
+**************************
+** Added UDF For dynamic fomula
+** Modify udf_GetBillableHC
+** Modify udf_GetRequiredHC
+*******************************/
+USE WFMPCP
+GO
+
+
+PRINT N'Disabling all DDL triggers...'
+GO
+DISABLE TRIGGER ALL ON DATABASE
+GO
+PRINT N'Altering [dbo].[udf_GetBillableHC]...';
+
+
+GO
+ALTER FUNCTION [dbo].[udf_GetBillableHC]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL
+	
+	--ahc67/(1-ahc23)
+	--SELECT @Value=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,67)/NULLIF((1-[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,23)),0)
+	
+	DECLARE @ahc67 DECIMAL(10,2)
+	,@ahc23 DECIMAL(10,2)
+	,@dividend DECIMAL(10,2)
+
+	SELECT @ahc67 = [dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,67)
+	SELECT @ahc23 = [dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,23)/100 --divide to 100 because it's %
+
+	--(1-ahc23)
+	SELECT @dividend =  1-@ahc23
+	
+	--ahc67/(1-ahc23)
+     SELECT @Value=@ahc67/@dividend
+
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Creating [dbo].[udf_Dynamic_BillablePerHour]...';
+
+
+GO
+CREATE FUNCTION [dbo].[udf_Dynamic_BillablePerHour]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL = 0
+	--= Weekly Production Hours / (((Forecasted Volume *  Projected AHT / 3600 / Target Occupancy / (1 - Total Projected Production Shrinkage)) * Derived Schedule Constraints)
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Creating [dbo].[udf_Dynamic_BillablePerMinute]...';
+
+
+GO
+CREATE FUNCTION [dbo].[udf_Dynamic_BillablePerMinute]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL = 0
+
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Creating [dbo].[udf_Dynamic_BillablePerUnit]...';
+
+
+GO
+CREATE FUNCTION [dbo].[udf_Dynamic_BillablePerUnit]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL = 0
+		,@NetRequiredHours DECIMAL
+		
+	--'= Net Required Hours / 40 * Schedule Constraint [in this case, its 1.0] [Net required hours = base hours / [1-Total Shrinkage] [Base hours = Forecast volume / planned TpH]
+	SELECT @NetRequiredHours = [dbo].[udf_GetNetReqHours](@SiteID,@CampaignID,@LobID,@Date)
+
+
+	SELECT @Value = @NetRequiredHours
+
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Creating [dbo].[udf_Dynamic_Erlang]...';
+
+
+GO
+CREATE FUNCTION [dbo].[udf_Dynamic_Erlang]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL = 0
+	--= Teammates ASA (ASA, Weekly Calls/Operating Hours) * Operating Hours / 37.5
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Creating [dbo].[udf_Dynamic_Straight]...';
+
+
+GO
+CREATE FUNCTION [dbo].[udf_Dynamic_Straight]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL = 0
+	--= Volume * AHT / 3600 / Derived Occupancy / 37.5
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Altering [dbo].[udf_GetRequiredHC]...';
+
+
+GO
+ALTER FUNCTION [dbo].[udf_GetRequiredHC]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL
+		,@ahc61 DECIMAL
+		,@netReqHours DECIMAL
+		-- Net Required Hours / 40 * Derived Scheduled Constraints [from Assumptions and Headcount tab]
+
+		SELECT @netReqHours=[dbo].[udf_GetNetReqHours](@SiteID,@CampaignID,@LobID,@Date)
+		
+		SELECT @ahc61=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,61)
+		
+		--DEFAULT FORMULA
+		SELECT @Value=(@netReqHours/40)*@ahc61
+		
+		--CHECK the formula assigned to Site,Campaign, and LoB
+		IF EXISTS (SELECT f.ID FROM DynamicFormula f 
+						INNER JOIN SiteCampaignLobFormula sclf ON sclf.DynamicFormulaID=f.ID
+						WHERE sclf.SiteID=@SiteID 
+							AND sclf.CampaignID=@CampaignID
+							AND sclf.LoBID=@LobID
+							AND sclf.Active = 1
+							AND f.Active = 1)
+		BEGIN
+			DECLARE @FormulaID BIGINT = 0
+
+			SELECT @FormulaID = f.ID FROM DynamicFormula f 
+			INNER JOIN SiteCampaignLobFormula sclf ON sclf.DynamicFormulaID=f.ID
+			WHERE sclf.SiteID=@SiteID 
+				AND sclf.CampaignID=@CampaignID
+				AND sclf.LoBID=@LobID
+				AND sclf.Active = 1
+				AND f.Active = 1
+
+			IF(@FormulaID=2)
+			BEGIN
+				SELECT @Value = [dbo].[udf_Dynamic_Erlang](@SiteID,@CampaignID,@LobID,@Date)
+			END
+			IF(@FormulaID=3)
+			BEGIN
+				SELECT @Value = [dbo].[udf_Dynamic_Straight](@SiteID,@CampaignID,@LobID,@Date)
+			END
+			IF(@FormulaID=4)
+			BEGIN
+				SELECT @Value = [dbo].[udf_Dynamic_BillablePerHour](@SiteID,@CampaignID,@LobID,@Date)
+			END
+			IF(@FormulaID=5)
+			BEGIN
+				SELECT @Value = [dbo].[udf_Dynamic_BillablePerUnit](@SiteID,@CampaignID,@LobID,@Date)
+			END
+			IF(@FormulaID=6)
+			BEGIN
+				SELECT @Value = [dbo].[udf_Dynamic_BillablePerMinute](@SiteID,@CampaignID,@LobID,@Date)
+			END
+		END
+
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Refreshing [dbo].[wfmpcp_SaveWeeklyAHDatapointDatatable_sp]...';
+
+
+GO
+EXECUTE sp_refreshsqlmodule N'[dbo].[wfmpcp_SaveWeeklyAHDatapointDatatable_sp]';
+
+
+GO
+PRINT N'Reenabling DDL triggers...'
+GO
+--ENABLE TRIGGER [tr_DDL_SchemaChangeLog] ON DATABASE
+GO
+PRINT N'Update complete.';
+
+
+GO
+
+/******************************
+** File: Buildscript_1.00.077.sql
+** Name: Buildscript_1.00.077
+** Auth: McNiel Viray
+** Date: 17 November 2017
+**************************
+** Change History
+**************************
+** Add new Segment and Datapoint for Average Speed of Answer
+** Create data for ASA
+*******************************/
+USE WFMPCP
+GO
+
+
+DECLARE @SegmentID BIGINT
+
+INSERT INTO Segment(SegmentCategoryID,[Name],SortOrder,CreatedBy,Active,Visible)
+VALUES(2,'ASA',7,'McNiel Viray',1,1)
+
+SELECT @SegmentID = SCOPE_IDENTITY()
+
+INSERT INTO Datapoint(SegmentID,[Name],Datatype,SortOrder,CreatedBy,Active,Visible)
+VALUES(@SegmentID,'Average Speed of Answer','Inputted',1,'McNiel Viray',1,1)
+
+GO
+INSERT INTO WeeklyAHDatapoint(SiteID,CampaignID,LoBID,DatapointID,[Week],[Data],[Date],CreatedBy,DateCreated)
+SELECT  
+SiteID
+,CampaignID
+,LoBID
+,118 DatapointID
+,[Week]
+,'0' [Data]
+,[Date]
+,CreatedBy
+,GETDATE() DateCreated
+FROM WeeklyAHDatapoint
+WHERE DatapointID=117
+GO
+/******************************
+** File: Buildscript_1.00.078.sql
+** Name: Buildscript_1.00.078
+** Auth: McNiel Viray	
+** Date: 20 November 2017
+**************************
+** Change History
+**************************
+** add formula to [udf_Erlang]
+** add formula to [udf_Dynamic_Straight]
+** add formula to [udf_Dynamic_BillablePerUnit]
+** add formula to [udf_Dynamic_BillablePerHour]
+*******************************/
+USE WFMPCP
+GO
+
+
+
+PRINT N'Disabling all DDL triggers...'
+GO
+DISABLE TRIGGER ALL ON DATABASE
+GO
+PRINT N'Altering [dbo].[udf_Dynamic_BillablePerHour]...';
+
+
+GO
+ALTER FUNCTION [dbo].[udf_Dynamic_BillablePerHour]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL(10,2) = 0
+	,@ahc60 DECIMAL = 0
+	,@ahc10 DECIMAL = 0
+    ,@ahc121 DECIMAL = 0
+    ,@ahc58 DECIMAL = 0
+	,@ahc21 DECIMAL = 0
+	,@ahc65 DECIMAL = 0
+
+	SELECT @ahc60=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,56)
+	SELECT @ahc10=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,6)
+	SELECT @ahc121=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,116)
+	SELECT @ahc58=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,54)
+	SELECT @ahc21=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,17)/100
+	SELECT @ahc65=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,61)
+	
+	--= Weekly Production Hours / (((Forecasted Volume *  Projected AHT / 3600 / Target Occupancy / (1 - Total Projected Production Shrinkage)) * Derived Schedule Constraints)
+	--'= 'Assumptions and Headcount'!D60 / ((('Assumptions and Headcount'!D10 * 'Assumptions and Headcount'!D121 / 3600 / 'Assumptions and Headcount'!D58 / (1 - 'Assumptions and Headcount'!D21)) * 'Assumptions and Headcount'!D65))
+	SELECT @Value=@ahc60/ (((@ahc10 * @ahc121 / 3600 / @ahc58 / (1 - @ahc21)) * @ahc65))
+
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Altering [dbo].[udf_Dynamic_BillablePerUnit]...';
+
+
+GO
+ALTER FUNCTION [dbo].[udf_Dynamic_BillablePerUnit]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL(10,2) = 0
+		,@NetRequiredHours DECIMAL
+	    ,@ahc60 DECIMAL = 0
+		,@ahc65 DECIMAL(10,2) = 0
+		,@ahc21 DECIMAL(10,2) = 0
+		,@ahc10 DECIMAL = 0
+		,@ahc13 DECIMAL(10,2) = 0
+		
+	--'= Net Required Hours / 40 * Schedule Constraint [in this case, its 1.0] [Net required hours = base hours / [1-Total Shrinkage] [Base hours = Forecast volume / planned TpH]
+	SELECT @NetRequiredHours = [dbo].[udf_GetNetReqHours](@SiteID,@CampaignID,@LobID,@Date)
+	
+	SELECT @ahc60=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,56)
+	SELECT @ahc65=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,61)
+	SELECT @ahc21=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,17)/100--%
+	SELECT @ahc10=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,6)
+	SELECT @ahc13=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,9)
+	--'= 'Assumptions and Headcount'!D60 / 40 * 'Assumptions and Headcount'!D65 / 1-'Assumptions and Headcount'!D21 * ('Assumptions and Headcount'!D10 / 'Assumptions and Headcount'!D13)
+	
+	SELECT @Value=@ahc60/ 40 * @ahc65 / (1-@ahc21) * (@ahc10 / @ahc13)
+
+
+	SELECT @Value = @NetRequiredHours
+
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Altering [dbo].[udf_Dynamic_Erlang]...';
+
+
+GO
+ALTER FUNCTION [dbo].[udf_Dynamic_Erlang]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL(10,2) = 0
+	,@ahc123 DECIMAL = 0
+    ,@ahc10 DECIMAL = 0
+    ,@ahc60 DECIMAL = 0
+	--= Teammates ASA (ASA, Weekly Calls/Operating Hours) * Operating Hours / 37.5
+	    
+	SELECT @ahc123=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,118)
+	SELECT @ahc10=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,6)
+	SELECT @ahc60=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,56)
+
+	--= (('Assumptions and Headcount'!D123 * 'Assumptions and Headcount'!D10) * 'Assumptions and Headcount'!D60) / 37.5
+	SELECT @Value=((@ahc123 * @ahc10) * @ahc60) / 37.5
+
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Altering [dbo].[udf_Dynamic_Straight]...';
+
+
+GO
+ALTER FUNCTION [dbo].[udf_Dynamic_Straight]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL(10,2) = 0
+	,@ahc121 DECIMAL = 0
+    ,@ahc10 DECIMAL = 0
+    ,@ahc58 DECIMAL = 0
+
+	SELECT @ahc10=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,6)
+	SELECT @ahc121=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,116)
+	SELECT @ahc58=[dbo].[udf_GetAHCDatapointValue](@SiteID,@CampaignID,@LobID,@Date,54)
+
+	--= Volume * AHT / 3600 / Derived Occupancy / 37.5
+	--'= ('Assumptions and Headcount'!D10 * 'Assumptions and Headcount'!D121) / 3600 / 'Assumptions and Headcount'!D58 / 37.5
+	SELECT @Value=(@ahc10 * @ahc121) / 3600 / @ahc58 / 37.5
+	RETURN ISNULL(@Value,0)
+END
+GO
+PRINT N'Reenabling DDL triggers...'
+GO
+--ENABLE TRIGGER [tr_DDL_SchemaChangeLog] ON DATABASE
+GO
+PRINT N'Update complete.';
+
+
+GO
+/******************************
+** File: Buildscript_1.00.079.sql
+** Name: Buildscript_1.00.079
+** Auth: McNiel Viray
+** Date: 23 November 2017
+**************************
+** Change History
+**************************
+** Added data for SiteCampaignLobFormula
+*******************************/
+USE WFMPCP
+GO
+
+
+
+INSERT INTO SiteCampaignLoBFormula(SiteID,CampaignID,LobID,DynamicFormulaID)
+VALUES
+(1,2,32,4),
+(1,2,30,3),
+(1,2,31,3),
+(2,5,38,3),
+(2,5,40,4),
+(2,5,39,4),
+(5,20,78,4),
+(5,20,76,4),
+(5,20,73,4),
+(5,20,79,4),
+(5,20,71,4),
+(5,20,72,4),
+(5,20,77,4),
+(5,20,75,4),
+(5,20,74,4),
+(5,20,80,4),
+(5,20,89,4),
+(5,20,82,4),
+(2,20,91,4),
+(5,20,85,4),
+(5,20,93,4),
+(5,20,94,4),
+(5,20,98,4),
+(5,20,97,4),
+(5,20,92,4),
+(3,9,46,4),
+(5,18,66,4),
+(5,18,67,4),
+(5,18,65,4),
+(5,18,64,4),
+(3,25,99,4),
+(3,21,50,5),
+(6,21,50,5),
+(3,21,48,5),
+(3,21,49,5),
+(6,21,49,5),
+(4,26,122,4),
+(4,22,100,4),
+(4,22,101,4),
+(4,22,102,4),
+(3,22,102,4),
+(5,15,57,4),
+(5,15,56,4),
+(4,23,106,4),
+(4,23,104,4),
+(4,23,107,4),
+(4,23,105,4),
+(2,23,106,4),
+(5,27,108,4),
+(5,27,109,4),
+(3,28,110,4),
+(3,28,111,4),
+(2,8,45,4),
+(5,19,68,4),
+(5,19,69,4),
+(2,6,42,4),
+(2,6,41,4),
+(1,3,34,3),
+(1,3,33,3),
+(1,3,35,3),
+(1,1,18,4),
+(1,1,16,5),
+(1,1,27,4),
+(1,1,15,5),
+(1,1,17,5),
+(1,1,4,5),
+(1,1,2,4),
+(1,1,3,5),
+(1,1,19,5),
+(1,1,20,5),
+(1,1,23,4),
+(1,1,25,4),
+(1,1,22,4),
+(1,1,24,4),
+(1,1,21,5),
+(1,1,11,5),
+(1,1,8,5),
+(1,1,7,5),
+(1,1,6,5),
+(1,1,1,4),
+(1,1,5,5),
+(1,1,26,4),
+(3,24,51,4),
+(5,24,51,4),
+(5,24,62,4),
+(2,29,123,4),
+(2,4,37,4),
+(2,4,36,4)
+GO
+
+/******************************
+** File: Buildscript_1.00.080.sql
+** Name: Buildscript_1.00.080
+** Auth: McNiel Viray
+** Date: 28 November 2017
+**************************
+** Change History
+**************************
+** Update sequence of module Lob Manager from 3 to 4
+** Create module for dynamic formula
+** Create Module Role relationship
+*******************************/
+USE WFMPCP
+GO
+
+PRINT N'Updating Lob Manager sortorder...'
+GO
+UPDATE [Module]
+SET SortOrder=4
+WHERE ID=6;
+GO
+
+PRINT N'Creating new module for Dynamic Formula Mapping...'
+GO
+INSERT INTO [Module](ParentID,[Name],FontAwesome,[Route],SortOrder,CreatedBy,Active)
+VALUES(2,'Formula Mapping','fa-tag','/DynamicFormula/MapFormula',5,'McNiel Viray',1);
+GO
+
+DECLARE @ModuleID BIGINT
+SELECT @ModuleID=ID FROM Module WHERE [Name]='Formula Mapping'
+AND ParentID=2
+
+INSERT INTO ModuleRolePermission(ModuleID,RoleID,PermissionID,CreatedBy)
+VALUES(@ModuleID,1,1,'McNiel Viray')
+INSERT INTO ModuleRolePermission(ModuleID,RoleID,PermissionID,CreatedBy)
+VALUES(@ModuleID,1,2,'McNiel Viray')
+INSERT INTO ModuleRolePermission(ModuleID,RoleID,PermissionID,CreatedBy)
+VALUES(@ModuleID,1,3,'McNiel Viray')
+
+INSERT INTO ModuleRolePermission(ModuleID,RoleID,PermissionID,CreatedBy)
+VALUES(@ModuleID,2,1,'McNiel Viray')
+INSERT INTO ModuleRolePermission(ModuleID,RoleID,PermissionID,CreatedBy)
+VALUES(@ModuleID,2,2,'McNiel Viray')
+INSERT INTO ModuleRolePermission(ModuleID,RoleID,PermissionID,CreatedBy)
+VALUES(@ModuleID,2,3,'McNiel Viray')
+GO
+
+UPDATE Segment
+SET Visible=1
+WHERE ID=14
+
+GO
+PRINT N'Update Complete...';
+GO
+

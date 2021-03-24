@@ -1,0 +1,90 @@
+﻿  <!-- plugins:css -->
+<link rel="stylesheet" href="@Url.Content("~/staradmin/vendors/iconfonts/mdi/css/materialdesignicons.min.css")">
+<link rel="stylesheet" href="@Url.Content("~/staradmin/vendors/css/vendor.bundle.base.css")">
+<link rel="stylesheet" href="@Url.Content("~/staradmin/vendors/css/vendor.bundle.addons.css")">
+<!-- endinject -->
+<!-- plugin css for this page -->
+<!-- End plugin css for this page -->
+<!-- inject:css -->
+<link rel="stylesheet" href="@Url.Content("~/staradmin/css/style.css")">
+<!-- endinject -->
+<link rel="shortcut icon" href="@Url.Content("~/staradmin/images/favicon.png")" />
+@{
+    ViewBag.Title = "Index";
+    //Layout = "~/Views/Shared/_StarAdminLayout.cshtml";
+}
+
+<div class="row">
+	<div class="col-lg-6 grid-margin stretch-card">
+		<div class="card">
+			<div class="card-body">
+				<h4 class="card-title">Line chart</h4>
+				<canvas id="lineChart" style="height:250px"></canvas>
+			</div>
+		</div>
+	</div>
+	<div class="col-lg-6 grid-margin stretch-card">
+		<div class="card">
+			<div class="card-body">
+				<h4 class="card-title">Bar chart</h4>
+				<canvas id="barChart" style="height:230px"></canvas>
+			</div>
+		</div>
+	</div>
+</div>
+<div class="row">
+	<div class="col-lg-6 grid-margin stretch-card">
+		<div class="card">
+			<div class="card-body">
+				<h4 class="card-title">Area chart</h4>
+				<canvas id="areaChart" style="height:250px"></canvas>
+			</div>
+		</div>
+	</div>
+	<div class="col-lg-6 grid-margin stretch-card">
+		<div class="card">
+			<div class="card-body">
+				<h4 class="card-title">Doughnut chart</h4>
+				<canvas id="doughnutChart" style="height:250px"></canvas>
+			</div>
+		</div>
+	</div>
+</div>
+<div class="row">
+	<div class="col-lg-6 grid-margin stretch-card">
+		<div class="card">
+			<div class="card-body">
+				<h4 class="card-title">Pie chart</h4>
+				<canvas id="pieChart" style="height:250px"></canvas>
+			</div>
+		</div>
+	</div>
+	<div class="col-lg-6 grid-margin stretch-card">
+		<div class="card">
+			<div class="card-body">
+				<h4 class="card-title">Scatter chart</h4>
+				<canvas id="scatterChart" style="height:250px"></canvas>
+			</div>
+		</div>
+	</div>
+</div>
+
+
+
+
+
+
+  <!-- container-scroller -->
+<!-- plugins:js -->
+<script src="@Url.Content("~/staradmin/vendors/js/vendor.bundle.base.js")"></script>
+<script src="@Url.Content("~/staradmin/vendors/js/vendor.bundle.addons.js")"></script>
+<!-- endinject -->
+<!-- Plugin js for this page-->
+<!-- End plugin js for this page-->
+<!-- inject:js -->
+<script src="@Url.Content("~/staradmin/js/off-canvas.js")"></script>
+<script src="@Url.Content("~/staradmin/js/misc.js")"></script>
+<!-- endinject -->
+<!-- Custom js for this page-->
+<script src="@Url.Content("~/staradmin/js/chart.js")"></script>
+<!-- End custom js for this page-->

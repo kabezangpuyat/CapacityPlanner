@@ -1,0 +1,77 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+	<!-- Required meta tags -->
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+	<title>WFM | Capacity Planner</title>
+	<!-- plugins:css -->
+	<link rel="stylesheet" href="@Url.Content("~/staradmin/vendors/iconfonts/mdi/css/materialdesignicons.min.css")">
+	<link rel="stylesheet" href="@Url.Content("~/staradmin/vendors/css/vendor.bundle.base.css")">
+	<link rel="stylesheet" href="@Url.Content("~/staradmin/vendors/css/vendor.bundle.addons.css")">
+	<!-- endinject -->
+	<!-- plugin css for this page -->
+	<link rel="stylesheet" href="@Url.Content("~/assets/css/bootstrap.min.css")" />
+	<!-- End plugin css for this page -->
+	<!-- inject:css -->
+	<link rel="stylesheet" href="@Url.Content("~/staradmin/css/style.css")">
+	<!-- endinject -->
+	<link rel="shortcut icon" href="@Url.Content("~/staradmin/images/favicon.png")" />
+
+	@RenderSection("specificPluginStyles", required: false)
+	<link rel="stylesheet" href="@Url.Content("~/assets/css/jquery-confirm.css")" />
+	@RenderSection("styles", required: false)
+</head>
+<body>
+	<div class="container-scroller">
+		<!-- partial:../../partials/_navbar.html -->
+		@{Html.RenderPartial("~/Views/Shared/_StarAdminNavbar.cshtml");}
+		<!-- partial -->
+		<div class="container-fluid page-body-wrapper">
+			<!-- partial:../../partials/_sidebar.html -->
+
+			@{Html.RenderPartial("~/Views/Shared/_StarAdminSidebar.cshtml");}
+
+			<!-- partial -->
+			<div class="main-panel">
+				<div id="toufiqElahy" class="content-wrapper">
+					@RenderBody()
+				</div>
+				
+				<!-- content-wrapper ends -->
+				<!-- partial:"~/staradmin/partials/_footer.html -->
+				@{ Html.RenderPartial("~/Views/Shared/_StarAdminFooter.cshtml"); }
+				<!-- partial -->
+			</div>
+			<!-- main-panel ends -->
+		</div>
+		<!-- page-body-wrapper ends -->
+	</div>
+	<!-- container-scroller -->
+	<!-- plugins:js -->
+	<script src="@Url.Content("~/staradmin/vendors/js/vendor.bundle.base.js")"></script>
+	<script src="@Url.Content("~/staradmin/vendors/js/vendor.bundle.addons.js")"></script>
+	<!-- endinject -->
+	<!-- Plugin js for this page-->
+
+	<!-- End plugin js for this page-->
+	<!-- inject:js -->
+	<script src="@Url.Content("~/assets/js/jquery-confirm.js")"></script>
+	@RenderSection("specificScripts", required: false)
+	<script src="@Url.Content("~/staradmin/js/off-canvas.js")"></script>
+	<script src="@Url.Content("~/staradmin/js/misc.js")"></script>
+	<!-- endinject -->
+	<!-- Custom js for this page-->
+	<!-- End custom js for this page-->
+	<script src="@Url.Content("~/Scripts/Common.js")"></script>
+	@RenderSection("scripts", required: false)
+	<link href="@Url.Content("~/staradmin/SPA/toufiqElahySPA.css")" rel="stylesheet" />
+	<script src="@Url.Content("~/staradmin/SPA/toufiqElahySPA_alertRemoved.js")"></script>
+	<script>
+        $(function () {
+           // $('#toufiqElahy').toufiqSPA();
+        })
+	</script>
+</body>
+</html>
+

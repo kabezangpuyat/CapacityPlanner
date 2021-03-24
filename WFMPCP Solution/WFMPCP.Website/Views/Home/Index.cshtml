@@ -1,0 +1,23 @@
+﻿@using Microsoft.AspNet.Identity
+@{ Layout = null;}
+
+
+
+HOME
+
+
+@if( Request.IsAuthenticated )
+{
+    using( Html.BeginForm( "LogOff", "Account", new { area = "" }, FormMethod.Post, new { id = "logoutForm", @class = "navbar-right" } ) )
+    {
+        @Html.AntiForgeryToken()
+
+        <ul class="nav navbar-nav navbar-right">
+            <li>
+               Hello  @User.Identity.GetUserName() !
+            </li>
+            <li><a href="javascript:sessionStorage.removeItem('accessToken');$('#logoutForm').submit();">Log off</a></li>
+        </ul>
+    }
+}
+<script src="@Url.Content("~/assets/js/jquery-2.1.4.min.js")"></script>

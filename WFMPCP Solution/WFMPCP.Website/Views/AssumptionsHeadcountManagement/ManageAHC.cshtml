@@ -1,0 +1,406 @@
+﻿@model WFMPCP.Model.Web.AHCViews
+@{
+	ViewBag.Title = "WFMPCP | AHC Manager";
+	//Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@section specificPluginStyles{
+    <link rel="stylesheet" href="@Url.Content( "~/assets/css/jquery-ui.min.css" )" />
+    <link rel="stylesheet" href="@Url.Content( "~/assets/css/bootstrap-datepicker3.min.css" )" />
+    <link rel="stylesheet" href="@Url.Content( "~/assets/css/ui.jqgrid.min.css" )" />  
+
+}
+
+<!---------------------------------------------------------------->
+
+@{ var textboxesNames = "";
+    var inputtedTextboxes = ""; }
+@foreach( var segment in Model.Segments.Where( x => x.SegmentCategoryID == 1 ).OrderBy( x => x.SortOrder ) )
+{
+    var dpCount = segment.Datapoints.Count();
+    foreach( var datapoint in segment.Datapoints.OrderBy( x => x.SortOrder ) )
+    {
+        //if(datapoint.ID==61)
+        //{
+        //    inputtedTextboxes += string.Format( "#txt_{0},", datapoint.ID );
+        //}
+        if( datapoint.Datatype.ToLower() == ( "Inputted" ).ToLower() )
+        {
+            inputtedTextboxes += string.Format( "#txt_{0},", datapoint.ID );
+        }
+        textboxesNames += string.Format( "#txt_{0},", datapoint.ID );
+    }
+}
+@foreach( var segment in Model.Segments.Where( x => x.SegmentCategoryID == 2 ).OrderBy( x => x.SortOrder ) )
+{
+    var dpCount = segment.Datapoints.Count();
+    foreach( var datapoint in segment.Datapoints.OrderBy( x => x.SortOrder ) )
+    {
+        if( datapoint.Datatype.Trim().ToLower() == ( "Inputted" ).ToLower() )
+        {
+            inputtedTextboxes += string.Format( "#txt_{0},", datapoint.ID );
+        }
+        textboxesNames += string.Format( "#txt_{0},", datapoint.ID );
+    }
+}
+<!---------------------------------------------------------------->
+<div class="row" style="display:none;">
+    <div class="col-xs-12 col-sm-12">
+        <div id="divWidgetBox" class="widget-box">
+            <div class="widget-header">
+                <h4 class="widget-title">Assumption and Headcount</h4>
+
+                <div class="widget-toolbar">
+                    <a href="#" data-action="collapse">
+                        <i id="iIcon" class="ace-icon fa fa-chevron-up"></i>
+                    </a>
+
+                    <a href="#" data-action="close" style="display:none;">
+                        <i class="ace-icon fa fa-times"></i>
+                    </a>
+                </div>
+            </div>
+
+            <div id="divWidgetBody" class="widget-body">
+                <div class="row">
+                    <div class="col-xs-12">
+                        &nbsp;
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-sm-12">
+                        <div class="row">
+                            <div class="col-xs-3">
+                                <div class="input-group input-group-sm">
+                                    <input type="text" id="datepicker" class="form-control" />
+                                    <span class="input-group-addon">
+                                        <i class="ace-icon fa fa-calendar"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-xs-12">
+                        &nbsp;
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-xs-3">
+                        <div>
+                            <select class="form-control" id="ddlSites2" style="width:200px;" tabindex="2">
+                                <option value="0">[Select Site]</option>
+                                @if( Model.Sites != null )
+                                {
+                                    foreach( var site in Model.Sites )
+                                    {
+                                        <option value="@site.ID">@site.Name</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-xs-3">
+                        <div>
+                            <select class="form-control" id="ddlCampaigns2" style="width:200px;" tabindex="2">
+                                <option value="0">[Select Campaign]</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-xs-3">
+                        <div>
+                            <select class="form-control" id="ddlLobs2" style="width:200px; z-index:999;" tabindex="2">
+                                <option value="0">[Select LoB]</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-xs-3">
+                        <div>
+                            <button type="button" id="btnSave5" class="btn btn-sm btn-primary" tabindex="5">
+                                <i class="ace-icon fa fa-check"></i>
+                                Save
+                            </button>
+                            &nbsp;
+                            <button type="button" id="btnCancel" class="btn btn-sm btn-warning" tabindex="5">
+                                <i class="ace-icon fa fa-times"></i>
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-xs-12">
+                        &nbsp;
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-xs-12">
+                        <div class="col-xs-3">
+                            <div>
+                                <button type="button" id="btnSave2" class="btn btn-sm btn-primary" tabindex="5">
+                                    <i class="ace-icon fa fa-check"></i>
+                                    Save
+                                </button>
+                                &nbsp;
+                                <button type="button" id="btnCancel2" class="btn btn-sm btn-warning" tabindex="5">
+                                    <i class="ace-icon fa fa-times"></i>
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-xs-12">
+                        &nbsp;<input type="text" id="txtNames" value="@textboxesNames.TrimEnd(',')" />
+                        <input type="text" id="txtInputtedNames" value="@inputtedTextboxes.TrimEnd(',')"  />
+                        <input type="text" id="IsUpdate" value="0" />
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div><!-- /.span -->
+
+</div>
+
+<form id="frmUpload">
+  
+	<div class="row">
+		<div class="col-xs-5">
+			<input type="file" id="fileuploadAHC" accept=".csv" />
+		</div>
+		<div class="col-xs-7">
+			<button id="btnUpload" class="btn btn-xs btn-success pull-left" tabindex="5">
+				<i class="ace-icon fa fa-check"></i>
+				Upload
+			</button>
+		</div>
+	
+	</div>
+</form>
+
+<div class="row">
+	&nbsp;
+</div>
+<div class="row" style="display:none;">
+    <div class="col-xs-12">
+        &nbsp;
+    </div>
+</div>
+@using( Ajax.BeginForm( "GenerateAHC", "AssumptionsHeadcountManagement",
+                                        new AjaxOptions
+                                        {
+                                            HttpMethod = "POST",
+                                            OnBegin = "return ahcManagement.ValidateAHCGrid();",
+                                            LoadingElementId = "divLoading",
+                                            InsertionMode = InsertionMode.Replace,
+                                            UpdateTargetId = "tblPivotHeader"
+                                        },
+                                        new { id = "frmAHC" } ) )
+{
+
+<div class="row">
+    <div class="col-xs-3">
+        <div>
+            <select class="form-control" id="ddlSites" style="width:200px;" tabindex="2">
+                <option value="0">[Select Site]</option>
+                @if( Model.Sites != null )
+                {
+                    foreach( var site in Model.Sites )
+                    {
+                        <option value="@site.ID">@site.Name</option>
+                    }
+                }
+            </select>
+        </div>
+    </div>
+    <div class="col-xs-3">
+        <div>
+            <select class="form-control" id="ddlCampaigns" style="width:200px;" tabindex="2">
+                <option value="0">[Select Campaign]</option>
+            </select>
+        </div>
+    </div>
+    <div class="col-xs-3">
+        <div>
+            <select class="form-control" id="ddlLobs" style="width:200px; z-index:999;" tabindex="2">
+                <option value="0">[Select LoB]</option>
+                @*<option value="20">20</option>
+                <option value="30">30</option>*@
+            </select>
+            @*<input type="text" value="0" id="LobID" />*@
+            @Html.TextBoxFor(m=>m.SiteID, new { @id= "SiteID", @style="display: none;", value="0" } )
+            @Html.TextBoxFor( m => m.CampaignID, new { @id = "CampaignID", @style = "display: none;", value = "0" } )
+            @Html.TextBoxFor( m => m.LobID, new { @id = "LobID", @style = "display: none;", value = "0" } )
+        </div>
+    </div>    
+    <div class="col-xs-3">
+           &nbsp;
+    </div>
+</div>
+<div class="row">
+    <div class="col-xs-12">
+        &nbsp;
+    </div>
+</div>
+<div class="row">
+    <div class="col-xs-3">
+        <div class="input-group input-group-sm">
+            @Html.TextBoxFor( m => m.StartDate, new { @id = "txtStart", @class = "form-control",  @maxlength="10", @autocomplete="off" } )
+            <span class="input-group-addon" id="sStart" style="cursor:pointer;">
+                <i class="ace-icon fa fa-calendar"></i>
+            </span>
+        </div>
+    </div>
+    <div class="col-xs-3">
+        <div class="input-group input-group-sm">
+            @Html.TextBoxFor( m => m.EndDate, new { @id = "txtEnd", @class = "form-control", @maxlength="10", @autocomplete="off" } )
+            <span class="input-group-addon" id="sEnd" style="cursor:pointer;">
+                <i class="ace-icon fa fa-calendar"></i>
+            </span>
+        </div>
+    </div>
+    <div class="col-xs-6">
+        <div>
+            <button type="submit" id="btnGenerate" class="btn btn-sm btn-primary" tabindex="5">
+                <i class="ace-icon fa fa-check"></i>
+                Generate
+            </button>
+            <button type="button" id="btnSave" class="btn btn-sm btn-warning" tabindex="5" style="display:none;">
+                <i class="ace-icon fa fa-check"></i>
+                Save
+            </button>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-xs-12">
+        &nbsp;
+    </div>
+</div>
+@Html.Action("_DivLoading","Common")
+<div class="row">
+    <div class="col-xs-12">
+        <div style="overflow-x: scroll;width:100%;"  id="divTblTarget">
+            @{Html.RenderPartial( "_AssumptionAHC", Model );}
+        </div>
+    </div>
+</div>
+
+}
+@section specificScripts{
+    <script src="@Url.Content("~/assets/js/bootstrap-datepicker.min.js")"></script>
+    <script src="@Url.Content("~/assets/js/jquery-ui.min.js")"></script>
+    <script src="@Url.Content("~/assets/js/jquery.ui.touch-punch.min.js")"></script>
+    <script src="@Url.Content("~/assets/js/jquery.jqGrid.min.js")"></script>
+    <script src="@Url.Content("~/assets/js/grid.locale-en.js")"></script>
+    <script src="@Url.Content("~/assets/js/jquery.maskedinput.min.js")"></script>
+    <script src="@Url.Content( "~/Scripts/jquery.validate.min.js" )"></script>
+    <script src="@Url.Content( "~/Scripts/jquery.validate.unobtrusive.js" )"></script>
+    <script src="@Url.Content( "~/Scripts/jquery.unobtrusive-ajax.min.js" )" ></script>
+    <script src="@Url.Content("~/Scripts/pageJs/AHCManagement.js")"></script>
+
+}
+
+@section scripts{
+<script>
+    ahcManagement.Initialize();
+    ahcManagement.SiteChange('@Url.Action( "GetCampaignBySite", "AssumptionsHeadcountManagement" )');
+    ahcManagement.LobChange();
+    ahcManagement.CampaignChange('@Url.Action( "GetLoBByCampaign", "AssumptionsHeadcountManagement" )');
+    ahcManagement.DateRangeFilters();
+    ahcManagement.OnButtonDatesChange();
+    ahcManagement.Save('@Url.Action( "Save", "AssumptionsHeadcountManagement" )');
+
+	$('#sStart').click(function () {
+		ahcManagement.DateRangeFilters();
+		$('#txtStart').datepicker('show');
+	});
+	$('#sEnd').click(function () {
+		ahcManagement.DateRangeFilters();
+		$('#txtEnd').datepicker('show');
+	});
+
+	$('#fileuploadAHC').ace_file_input({
+		no_file: 'No File ...',
+		btn_choose: 'Choose',
+		btn_change: 'Change',
+		droppable: false,
+		onchange: null,
+		thumbnail: false //| true | large
+		//whitelist:'gif|png|jpg|jpeg'
+		//blacklist:'exe|php'
+		//onchange:''
+		//
+	});
+
+	document.getElementById('frmUpload').onsubmit = function () {
+		var fileupload = $('#fileuploadAHC').val();
+		var msg = '';
+
+		if (fileupload.trim() == '')
+			msg += 'Please select csv file. <br />';
+
+		if (msg == '') {
+			$.confirm({
+				closeIcon: true,
+				title: 'WFMPCP | AHC Manager',
+				content: 'Do you want to proceed?',
+				confirmButton: 'Yes',
+				cancelButton: 'No',
+				confirm: function () {
+						var formdata = new FormData(); //FormData object
+						var fileInput = document.getElementById('fileuploadAHC');
+
+						//Iterating through each files selected in fileInput
+						for (i = 0; i < fileInput.files.length; i++) {
+							//Appending each file to FormData object
+							formdata.append(fileInput.files[i].name, fileInput.files[i]);
+						}
+						$('#divLoading').show();
+						//Creating an XMLHttpRequest and sending
+						var xhr = new XMLHttpRequest();
+						xhr.open('POST', '@Url.Action("UploadCSV", "AssumptionsHeadcountManagement")');
+						xhr.send(formdata);
+						xhr.onreadystatechange = function () {
+							$('#divLoading').hide();
+							document.getElementById('fileuploadAHC').value = "";
+							if (xhr.readyState == 4 && xhr.status == 200) {								
+
+								var result = JSON.parse(xhr.responseText);
+
+								$.alert({
+									closeIcon: true,
+									title: 'WFMPCP | AHC Manager',
+									content: result.Message
+								});
+							}
+						}
+					},
+				cancel: function () {
+					$('#divLoading').hide();
+					//return false;
+				}
+			});
+		}
+		else {
+			$.alert({
+				closeIcon: true,
+				title: 'WFMPCP | AHC Manager',
+				content: msg
+			});
+		}
+		
+		return false;
+	};
+	
+	
+</script>
+}
+
+
+
+
+

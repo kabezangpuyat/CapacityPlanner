@@ -1,0 +1,92 @@
+﻿/******************************
+** File: Buildscript_1.00.065.sql
+** Name: Buildscript_1.00.065
+** Auth: McNiel Viray
+** Date: 12 September 2017
+**************************
+** Change History
+**************************
+** Create User
+*******************************/
+USE WFMPCP
+GO
+
+INSERT INTO UserRole(EmployeeID,RoleID,CreatedBy,NTLogin)
+VALUES
+('1400465',3,'Bulk Insert',''),
+('1503090',3,'Bulk Insert',''),
+('1400688',2,'Bulk Insert',''),
+('1503087',3,'Bulk Insert',''),
+('1701920',3,'Bulk Insert',''),
+('1503311',3,'Bulk Insert',''),
+('1600505',3,'Bulk Insert',''),
+('1400529',3,'Bulk Insert',''),
+('1601534',3,'Bulk Insert',''),
+('1503596',3,'Bulk Insert',''),
+('1505527',3,'Bulk Insert',''),
+('1701105',3,'Bulk Insert',''),
+('1604142',3,'Bulk Insert',''),
+('1400401',3,'Bulk Insert',''),
+('1502267',3,'Bulk Insert',''),
+('1603913',3,'Bulk Insert',''),
+('1700150',3,'Bulk Insert',''),
+('1605963',2,'Bulk Insert',''),
+('1601071',2,'Bulk Insert',''),
+('1700097',2,'Bulk Insert',''),
+('1700125',2,'Bulk Insert',''),
+('1602545',2,'Bulk Insert',''),
+('1700907',2,'Bulk Insert',''),
+('1701064',3,'Bulk Insert',''),
+('1501747',3,'Bulk Insert',''),
+('1500812',3,'Bulk Insert',''),
+('1400820',3,'Bulk Insert',''),
+('1505339',3,'Bulk Insert',''),
+('1700337',2,'Bulk Insert',''),
+('1700388',2,'Bulk Insert',''),
+('1500886',3,'Bulk Insert',''),
+('1701945',3,'Bulk Insert',''),
+('1504229',3,'Bulk Insert',''),
+('1505824',3,'Bulk Insert',''),
+('1600784',3,'Bulk Insert',''),
+('1603702',3,'Bulk Insert',''),
+('1701786',3,'Bulk Insert',''),
+('1701542',3,'Bulk Insert',''),
+('1401036',2,'Bulk Insert',''),
+('1603723',3,'Bulk Insert',''),
+('1503000',3,'Bulk Insert',''),
+('1504175',3,'Bulk Insert',''),
+('1600580',3,'Bulk Insert',''),
+('1504708',3,'Bulk Insert',''),
+('1604015',3,'Bulk Insert',''),
+('1504992',3,'Bulk Insert',''),
+('1604075',3,'Bulk Insert',''),
+('1604072',3,'Bulk Insert',''),
+('1602199',2,'Bulk Insert',''),
+('1502928',3,'Bulk Insert',''),
+('1500037',3,'Bulk Insert',''),
+('1502437',3,'Bulk Insert',''),
+('1502916',3,'Bulk Insert',''),
+('1505400',2,'Bulk Insert',''),
+('1502017',3,'Bulk Insert',''),
+('1600111',3,'Bulk Insert',''),
+('1601424',2,'Bulk Insert',''),
+('1604721',3,'Bulk Insert',''),
+('1500707',3,'Bulk Insert',''),
+('1401226',2,'Bulk Insert',''),
+('1503573',3,'Bulk Insert',''),
+('1600143',3,'Bulk Insert',''),
+('1700909',3,'Bulk Insert',''),
+('1502920',3,'Bulk Insert',''),
+('1603065',3,'Bulk Insert',''),
+('1702133',3,'Bulk Insert',''),
+('2011099',2,'Bulk Insert',''),
+('1501913',3,'Bulk Insert',''),
+('1501184',2,'Bulk Insert',''),
+('1505107',2,'Bulk Insert',''),
+('1700017',2,'Bulk Insert',''),
+('1701062',2,'Bulk Insert',''),
+('1504069',3,'Bulk Insert',''),
+('1501657',2,'Bulk Insert',''),
+('1603595',3,'Bulk Insert',''),
+('1503021',3,'Bulk Insert','')
+GO

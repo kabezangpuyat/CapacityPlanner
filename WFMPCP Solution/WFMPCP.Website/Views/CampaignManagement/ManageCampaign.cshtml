@@ -1,0 +1,229 @@
+﻿@model Tuple<IQueryable<WFMPCP.Model.SiteViewModel>>
+@{
+	ViewBag.Title = "WFMPCP | Campaign Manager";
+	//Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@section specificPluginStyles{
+    <link rel="stylesheet" href="@Url.Content( "~/assets/css/jquery-ui.min.css" )" />
+    <link rel="stylesheet" href="@Url.Content( "~/assets/css/bootstrap-datepicker3.min.css" )" />
+    <link rel="stylesheet" href="@Url.Content( "~/assets/css/ui.jqgrid.min.css" )" />
+}
+
+<div class="row">
+    <!-- PAGE CONTENT BEGINS -->
+    <div class="col-xs-12 col-lg-6">
+        <div>
+            <table id="grid-table"></table>
+
+            <div id="grid-pager"></div>
+        </div>
+    </div>
+
+    <div class="col-xs-12 col-lg-6">
+        <div class="panel-group" style="width:100%; margin-left:10px; margin-right: 10px;">
+            <div class="panel panel-primary">
+                <div class="panel-heading" style="font-weight:bolder; font-size:12px;">Campaign Details</div>
+                <div class="panel-body">
+                    <div class="container-fluid">
+                        <div class="row" style="margin-top:5px; margin-bottom:5px;">
+                            <div class="col-sm-5" style="width:30%;"><span class="txtbold">Name :</span></div>
+                            <div class="col-sm-pull-5">
+                                <input type="text" id="txtID" value="0" class="col-xs-10 col-sm-5" style="display:none;" />
+                                <input type="text" id="txtName" class="col-xs-10 col-sm-5" tabindex="0" />
+                            </div>
+                        </div>
+                        <div class="row" style="margin-top:5px; margin-bottom:5px;">
+                            <div class="col-sm-5" style="width:30%;"><span class="txtbold">Code :</span></div>
+                            <div class="col-sm-pull-5">
+                                <input type="text" id="txtCode" class="col-xs-10 col-sm-5" tabindex="1" />
+                            </div>
+                        </div>
+                        <div class="row" style="margin-top:5px; margin-bottom:5px;">
+                            <div class="col-sm-5" style="width:30%;"><span class="txtbold">Site :</span></div>
+                            <div class="col-sm-pull-5">
+                                <select class="form-control" id="ddlSites" style="width:300px;" tabindex="2" multiple="multiple">
+                                   
+                                    @foreach( var site in Model.Item1 )
+                                    {
+                                        <option value="@site.ID">@site.Name</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row" style="margin-top:5px; margin-bottom:5px;">
+                            <div class="col-sm-5" style="width:30%;"><span class="txtbold">Description :</span></div>
+                            <div class="col-sm-pull-5">
+                                <textarea class="form-control" id="txtDescription" tabindex="4" style="margin: 0px -0.875px 0px 0px; width: 388px; height: 182px;"></textarea>
+                            </div>
+                        </div>
+                        <div class="row" style="margin-top:5px; margin-bottom:5px;">
+                            <div class="col-sm-pull-5">
+                                <div align="left">
+                                    &nbsp;&nbsp;&nbsp;
+                                    <button id="btnSave" class="btn btn-sm btn-primary" tabindex="5">
+                                        <i class="ace-icon fa fa-check"></i>
+                                        Save
+                                    </button>
+                                    &nbsp;
+                                    <button id="btnDelete" class="btn btn-sm btn-primary" style="display:none;" tabindex="6">
+                                        <i class="ace-icon fa fa-times"></i>
+                                        Delete
+                                    </button>
+                                    &nbsp;
+                                    <button id="btnCancel" class="btn btn-sm" data-dismiss="modal" tabindex="7">
+                                        <i class="ace-icon fa fa-times"></i>
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- PAGE CONTENT ENDS -->
+    <!-- /.col -->
+</div><!-- /.row -->
+@section specificScripts{
+    <script src="@Url.Content("~/assets/js/bootstrap-datepicker.min.js")"></script>
+    <script src="@Url.Content("~/assets/js/jquery.jqGrid.min.js")"></script>
+    <script src="@Url.Content("~/assets/js/grid.locale-en.js")"></script>
+    <script src="@Url.Content("~/Scripts/pageJs/CampaignManagement.js")"></script>
+}
+
+@section scripts{
+
+    <script>
+        var grid_selector = "#grid-table";
+        var pager_selector = "#grid-pager";
+        $(document).ready(function () {
+
+            var jqDataUrl = "@Url.Action("LoadjqData", "CampaignManagement" )";
+            // Set up the jquery grid
+
+            var parent_column = $(grid_selector).closest('[class*="col-"]');
+            //resize to fit page size
+            $(window).on('resize.jqGrid', function () {
+                $(grid_selector).jqGrid('setGridWidth', parent_column.width());
+            })
+
+            //resize on sidebar collapse/expand
+            $(document).on('settings.ace.jqGrid', function (ev, event_name, collapsed) {
+                if (event_name === 'sidebar_collapsed' || event_name === 'main_container_fixed') {
+                    //setTimeout is for webkit only to give time for DOM changes and then redraw!!!
+                    setTimeout(function () {
+                        $(grid_selector).jqGrid('setGridWidth', parent_column.width());
+                    }, 20);
+                }
+            })
+
+
+            jQuery(grid_selector).jqGrid({
+                //direction: "rtl",
+
+                //subgrid options
+                subGrid: false,
+                //data: grid_data,
+                //datatype: "local",
+                height: 500,
+                width: 600,
+
+                url: jqDataUrl,
+                datatype: "json",
+                mtype: "POST",
+
+                colNames: ["ID", "Campaign Name", "Code", "Site"],
+                // Configure the columns
+                colModel: [
+                    { name: "ID", index: "ID", width: 5, align: "center", hidden: true },
+                    { name: "Name", index: "Name", width: 30, align: "center" },
+                    { name: "Code", index: "Code", width: 25, align: "center" },
+                    { name: "SiteName", index: "SiteName", width: 25, align: "center", sortable: "false" }
+                ],
+                //cursor:"pointer",
+                viewrecords: true,
+                rowNum: 20,
+                //rowList: [20, 40, 60],
+                pager: pager_selector,
+                altRows: true,
+                //toppager: true,
+
+                multiselect: false,
+                //multikey: "ctrlKey",
+                multiboxonly: true,
+
+                //editurl: "./dummy.php",//nothing is saved
+                caption: "Campaign Manager",
+                sortname: "Name,Code", //Column name of entity to be sort
+                sortorder: "asc",
+                loadComplete: function () {
+                    var table = this;
+                    setTimeout(function () {
+                        //styleCheckbox(table);
+
+                        common.UpdateJQGridPagerIcons(table);
+                        //align column header  to center
+                        $('.ui-jqgrid-sortable').attr('style', 'text-align: center;');
+                        //common.EnableJQGridTootTips(table);
+                    }, 0);
+                },
+                onSelectRow: function (id) {
+                    $('#btnDelete').show();
+                    campaignmanagement.OnGridSelectRow(id, '@Url.Action( "LoadDetails", "CampaignManagement" )');
+                }
+
+            });
+            $(window).triggerHandler('resize.jqGrid');
+            //navButtons
+            //jQuery(grid_selector).jqGrid({"sortgrid","FullName","Asc"});
+            jQuery(grid_selector).jqGrid('navGrid', pager_selector,
+                { 	//navbar options
+                    edit: false,
+                    //editicon: 'ace-icon fa fa-pencil blue',
+                    add: false,
+                    //addicon: 'ace-icon fa fa-plus-circle purple',
+                    del: false,
+                    delicon: 'ace-icon fa fa-trash-o red',
+                    search: true,
+                    searchicon: 'ace-icon fa fa-search orange',
+                    refresh: true,
+                    refreshicon: 'ace-icon fa fa-refresh green',
+                    view: false
+                    //viewicon: 'ace-icon fa fa-search-plus grey',
+                },
+                {}, // settings for edit
+                {}, // settings for add
+                {
+                    //onClick: function (e) {
+                    //    alert(e);
+                    //}
+                }, // settings for delete
+                {
+                    sopt: ["cn", "eq"],
+                    caption: "Search...",
+                    Find: "Search",
+                    closeAfterSearch: true,
+                    ignoreCase: true
+                }
+            );
+
+            $(document).one('ajaxloadstart.page', function (e) {
+                $.jgrid.gridDestroy(grid_selector);
+                $('.ui-jqdialog').remove();
+            });
+
+            $('#txtName').focus();
+        });
+
+        campaignmanagement.OnDeleteClick('@Url.Action( "Delete", "CampaignManagement")', grid_selector);
+        campaignmanagement.OnSaveClick('@Url.Action( "Save", "CampaignManagement")', grid_selector);
+        campaignmanagement.OnCancel(grid_selector);
+    </script>
+}
+
+
+
+
+

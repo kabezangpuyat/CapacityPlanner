@@ -1,0 +1,59 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Operations Version="1.0" xmlns="http://schemas.microsoft.com/sqlserver/dac/Serialization/2012/02">
+  <Operation Name="Rename Refactor" Key="17f5a37e-a262-46a9-81a8-620bd67b5be7" ChangeDateTime="04/06/2017 03:56:42">
+    <Property Name="ElementName" Value="[dbo].[ModuleRoleFunctionality].[DateModifieed]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[ModuleRoleFunctionality]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="DateModified" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="36f008c5-b8b4-4e17-96c1-a90ddd214adf" ChangeDateTime="04/19/2017 01:33:27">
+    <Property Name="ElementName" Value="[dbo].[AuditTrail].[Id]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[AuditTrail]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="ID" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="1c83dedd-104e-4f96-90cb-a951e72267a0" ChangeDateTime="07/10/2017 01:26:12">
+    <Property Name="ElementName" Value="[dbo].[SiteCampaign].[Id]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[SiteCampaign]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="ID" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="414d8eb9-bba1-4ab4-b279-aa58e13631fb" ChangeDateTime="07/10/2017 01:26:21">
+    <Property Name="ElementName" Value="[dbo].[SiteCampaign].[ID]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[SiteCampaign]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="SiteID" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="1b1445e8-51d8-44de-bc8c-902de25858ee" ChangeDateTime="07/10/2017 01:27:11">
+    <Property Name="ElementName" Value="[dbo].[SiteCampaignLoB].[Id]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[SiteCampaignLoB]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="ID" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="3fa055b1-568b-4e05-b44b-17a403302373" ChangeDateTime="07/10/2017 01:27:16">
+    <Property Name="ElementName" Value="[dbo].[SiteCampaignLoB].[ID]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[SiteCampaignLoB]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="SiteID" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="507bede8-627e-492c-a385-4052816a95c3" ChangeDateTime="11/09/2017 03:39:42">
+    <Property Name="ElementName" Value="[dbo].[SiteCampaignLobFormula].[Id]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[SiteCampaignLobFormula]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="ID" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="1d39bf04-b4ec-46bc-9c17-4126977582cb" ChangeDateTime="11/09/2017 03:40:44">
+    <Property Name="ElementName" Value="[dbo].[SiteCampaignLobFormula].[CampaingID]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[SiteCampaignLobFormula]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="CampaignID" />
+  </Operation>
+</Operations>

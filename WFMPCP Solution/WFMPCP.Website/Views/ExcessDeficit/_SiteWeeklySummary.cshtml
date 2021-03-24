@@ -1,0 +1,69 @@
+﻿@model WFMPCP.Model.SummaryOverAllExcessDeficitViews
+
+<div class="row">
+    <div class="col-xs-12">
+        <div>
+            <table id="simple-table" class="table  table-bordered">
+                <thead>
+                    <tr>
+                        @try
+                        {
+                            foreach( var row in Model.SitePivot.FirstOrDefault() )
+                            {
+                                string value = row.Key;
+                                if( row.Key.ToString().Trim().ToLower() != "site" )
+                                {
+                                    value = Convert.ToDateTime( row.Key ).ToString( "MMM dd, yyyy" );
+                                }
+                                <th style="text-align:center;">@value</th>
+                            }
+                        }
+                        catch
+                        {
+                            <th style="text-align:center;">&nbsp;</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                        @try
+                        {
+                            foreach( var row in Model.SitePivot )
+                            {
+                                <tr>
+                                    @{ var style = "";
+                                        var value = "";}
+                                    @foreach( var column in row )
+                                    {
+                                        if( column.Key.Trim().ToLower() == "site" )
+                                        {
+                                            style = "font-weight: bold;";
+                                            value = column.Value.ToString();
+                                        }
+                                        else
+                                        {
+                                            style = "text-align:center;";
+                                            double init = Math.Ceiling( Convert.ToDouble( column.Value ) );
+
+                                            if( init < 0 )
+                                            {
+                                                style = "text-align:center;color:Red;";
+                                                value = string.Format( "({0})", init.ToString().Replace( "-", "" ) );
+                                            }
+                                            else
+                                            {
+                                                value = init.ToString();
+                                            }
+                                        }
+                                        <td style="@style">@value</td>
+                                    }
+                                </tr>
+                            }
+                        }
+                        catch { }
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+</div>
+

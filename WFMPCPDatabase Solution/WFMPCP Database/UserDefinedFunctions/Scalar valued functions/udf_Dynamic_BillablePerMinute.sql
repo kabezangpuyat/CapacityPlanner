@@ -1,0 +1,14 @@
+﻿CREATE FUNCTION [dbo].[udf_Dynamic_BillablePerMinute]
+(
+	@SiteID BIGINT,
+	@CampaignID BIGINT,
+	@LobID BIGINT,
+	@Date DATE
+)
+RETURNS DECIMAL
+AS
+BEGIN
+	DECLARE @Value DECIMAL = 0
+
+	RETURN ISNULL(@Value,0)
+END

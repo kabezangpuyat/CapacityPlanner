@@ -1,0 +1,172 @@
+﻿@model WFMPCP.Model.SummaryOverAllExcessDeficitViews
+@{ double threeMonthsSiteTotal = 0; double firstTotal = 0;double secondTotal = 0;double thirdTotal = 0;}
+<div class="row">
+
+    <div class="col-xs-12">
+        <div>
+            <table id="simple-table" class="table  table-bordered">
+                <thead>
+                    <tr>
+                        <th colspan="4">Site Summary</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="width:25%;">
+                            <table id="simple-table" class="table  table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th class="center" colspan="2">Overall Summary</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td style="width:50%;"><strong>Total Hiring Requirements(3-Months)</strong></td>
+                                        [ThreeMonthsSiteTotal]
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </td>
+                        <td style="width:25%;">
+                            <table id="simple-table" class="table  table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th colspan="2" class="center">@Model.Month1 Hiring Outlook</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach( var row in Model.FirstMonthSite )
+                                    {
+                                        <tr>
+                                            @{ var style = "";
+                                                var value = "";}
+                                            @foreach( var column in row )
+                                            {
+                                                if( column.Key.Trim().ToLower() == "site" )
+                                                {
+                                                    style = "font-weight: bold;";
+                                                    value = column.Value.ToString();
+                                                }
+                                                else
+                                                {
+                                                    style = "text-align:center;";
+                                                    double init = Math.Ceiling( Convert.ToDouble( column.Value ) );
+                                                    threeMonthsSiteTotal += init;
+                                                    firstTotal += init;
+
+                                                    if( init < 0 )
+                                                    {
+                                                        style = "text-align:center;color:Red;";
+                                                        value = string.Format( "({0})", init.ToString().Replace( "-", "" ) );
+                                                    }
+                                                    else
+                                                    {
+                                                        value = init.ToString();
+                                                    }
+                                                }
+                                                <td style="@style">@value</td>
+                                            }
+                                        </tr>
+                                     }
+                                </tbody>
+                            </table>
+                        </td>
+                        <td style="width:25%;">
+                            <table id="simple-table" class="table  table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th colspan="2" class="center">@Model.Month2 Hiring Outlook</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach( var row in Model.SecondMonthSite )
+                                    {
+                                        <tr>
+                                            @{ var style = "";var value="";}
+                                            @foreach( var column in row )
+                                            {
+                                                if( column.Key.Trim().ToLower() == "site" )
+                                                {
+                                                    style = "font-weight: bold;";
+                                                    value = column.Value.ToString();
+                                                }
+                                                else
+                                                {
+                                                    style = "text-align:center;";
+                                                    double init = Math.Ceiling( Convert.ToDouble( column.Value ) );
+                                                    threeMonthsSiteTotal += init;
+                                                    secondTotal += init;
+
+                                                    if( init < 0 )
+                                                    {
+                                                        style = "text-align:center;color:Red;";
+                                                        value = string.Format( "({0})", init.ToString().Replace( "-", "" ) );
+                                                    }
+                                                    else
+                                                    {
+                                                        value = init.ToString();
+                                                    }
+                                                }
+                                                <td style="@style">@value</td>
+                                            }
+                                        </tr>
+                                     }
+                                </tbody>
+                            </table>
+                        </td>
+                        <td style="width:25%;">
+                            <table id="simple-table" class="table  table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th colspan="2" class="center">@Model.Month3 Hiring Outlook</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach( var row in Model.ThirdMonthSite )
+                                    {
+                                        <tr>
+                                           @{ var style = "";var value="";}
+                                            @foreach( var column in row )
+                                            {
+                                                if( column.Key.Trim().ToLower() == "site" )
+                                                {
+                                                    style = "font-weight: bold;";
+                                                    value = column.Value.ToString();
+                                                }
+                                                else
+                                                {
+                                                    style = "text-align:center;";
+                                                    double init = Math.Ceiling( Convert.ToDouble( column.Value ) );
+                                                    threeMonthsSiteTotal += init;
+                                                    thirdTotal += init;
+
+                                                    if( init < 0 )
+                                                    {
+                                                        style = "text-align:center;color:Red;";
+                                                        value = string.Format( "({0})", init.ToString().Replace( "-", "" ) );
+                                                    }
+                                                    else
+                                                    {
+                                                        value = init.ToString();
+                                                    }
+                                                }
+                                                <td style="@style">@value</td>
+                                            }
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div style="display:none;">
+    xxx @threeMonthsSiteTotal xxx
+    1st @firstTotal 1st
+    2nd @secondTotal 2nd
+    3rd @thirdTotal 3rd
+</div>

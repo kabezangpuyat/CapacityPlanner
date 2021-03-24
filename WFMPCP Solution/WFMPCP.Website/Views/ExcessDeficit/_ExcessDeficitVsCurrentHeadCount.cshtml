@@ -1,0 +1,119 @@
+﻿@model WFMPCP.Model.SummaryOverAllExcessDeficitViews
+
+<div class="row">
+    <div class="col-xs-12">
+        <div>
+            <table id="simple-table" class="table  table-bordered table-hover">
+                <thead>
+                    <tr>
+                       @try
+                       {
+                            foreach( var row in Model.SitePivot.FirstOrDefault() )
+                            {
+                                if( row.Key.Trim().ToLower() != "campaignid" )
+                                {
+                                    <th style="text-align:center;">@row.Key</th>
+                               }
+                           }
+                       }
+                       catch
+                       {
+                        <th style="text-align:center;">&nbsp;</th>
+                       }
+                    </tr>
+                </thead>
+                <tbody>
+@try
+{
+    List<string> colValue = new List<string>(); 
+    foreach( var row in Model.SitePivot )
+    {
+        <tr>
+        @{long campaignID = 0;
+            string dtpointid = "";}
+        @foreach( var column in row )
+        {
+            string style = "text-align:center;";
+
+            if( column.Key.Trim().ToLower() == "campaignid" )
+            {
+                campaignID = Convert.ToInt64( column.Value );
+            }
+            try
+            {
+                Convert.ToInt64( column.Value.ToString() );
+            }
+            catch { style += "font-weight:bold;"; }
+
+            if( column.Key.Trim().ToLower() == "campaignid" )
+            {
+                style += "display:none;";
+            }
+            if( column.Key.Trim().ToLower() == "type" )
+            {
+                dtpointid = column.Value.ToString();
+            }
+
+            if( column.Key.Trim().ToLower() == "campaign" )
+            {
+                string colVal = Convert.ToString( campaignID ).Trim();
+                colValue.Add( colVal );
+                style += "background-color:#FBBBB9;";
+                int segmentCount = colValue.Where( x => x == colVal ).Count();
+                if( segmentCount == 1 )
+                {
+                    int rowCount = Model.SitePivot.Where( x => x.Values.Contains( campaignID ) ).Count();
+                    if( rowCount > 2 )
+                    {
+                        rowCount = 2;
+                    }
+                    <td style="@style" rowspan="@rowCount.ToString()">
+                    @column.Value 
+                    </td>
+                }
+            }
+
+            if( column.Key.Trim().ToLower() != "campaignid" && column.Key.Trim().ToLower() != "campaign" && column.Key.Trim().ToLower() != "type" && column.Key.Trim().ToLower() != "typeid" )
+            {
+                style = "text-align:center;";
+                decimal val = 0;
+                try
+                {
+                    var numValue = Convert.ToDecimal( @column.Value.ToString().Replace( "%", "" ).Trim() );
+                    if( numValue < 0 )
+                    {
+                        style += "font-weight:bold;color:Red;";
+                    }
+                    else if( numValue == 0 )
+                    {
+                        style += "font-weight:bold;";
+                    }
+                    else if(numValue > 0 )
+                    {
+                        val = Math.Round( numValue, 2 );
+                    }
+                }
+                catch { }
+                <td style="@style">@val</td>
+            }
+            else if( column.Key.Trim().ToLower() == "type" )
+            {
+                <td style="text-align:center;background-color:#659EC7;">@column.Value</td>
+            }
+
+        }
+        </tr>                    
+    }
+}
+catch
+{
+
+}
+
+                            </tbody>
+            </table>
+
+        </div>
+    </div>
+</div>
+

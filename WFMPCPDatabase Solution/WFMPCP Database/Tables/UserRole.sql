@@ -1,0 +1,12 @@
+﻿CREATE TABLE [dbo].[UserRole]
+(
+	[ID] BIGINT NOT NULL IDENTITY(1,1) CONSTRAINT [PK_UserRole_ID] PRIMARY KEY, 
+	[RoleID] BIGINT NOT NULL,
+    [NTLogin] NVARCHAR(50) NOT NULL, 
+    [EmployeeID] NVARCHAR(50) NOT NULL, 
+    [CreatedBy] NVARCHAR(250) NULL, 
+    [ModifiedBy] NVARCHAR(250) NULL, 
+    [DateCreated] DATETIME NOT NULL CONSTRAINT [DF_UserRole_DateCreated] DEFAULT GETDATE(), 
+    [DateModified] DATETIME NULL, 
+    [Active] BIT NOT NULL DEFAULT 1,
+)

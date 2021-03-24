@@ -1,0 +1,161 @@
+﻿
+@{
+    Layout = null;
+}
+
+<div class="modal fade" id="myErlangCDialog" role="dialog">
+	<div class="modal-dialog">
+
+		<!-- Modal content-->
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal">&times;</button>
+				<h4 class="widget-title"><i class="ace-icon fa fa-calculator"></i>&nbsp;Erlang C Calculator</h4>
+			</div>
+			<div class="modal-body">
+				<div>
+					<div class="row">
+						<div class="col-xs-2">
+							<strong># calls/hour</strong>
+						</div>
+						<div class="col-xs-2">
+							<strong>AHT in seconds</strong>
+						</div>
+						<div class="col-xs-3">
+							<strong>Required SL %</strong>
+						</div>
+						<div class="col-xs-2">
+							<strong>Target Answer Time(sec)</strong>
+						</div>
+						<div class="col-xs-3">
+							<strong>Shrinkage %</strong>
+						</div>
+					</div>
+					<div class="row">
+						<div class="col-xs-2">
+							<input id="txtNumberofcalls" autofocus type="number" min="1" class="input-small" onkeypress="return (event.charCode == 8 || event.charCode == 0 || event.charCode == 13) ? null : event.charCode >= 48 && event.charCode <= 57" />
+						</div>
+						<div class="col-xs-2">
+							<input id="txtAHTInSeconds" type="number" min="1" class="input-small" onkeypress="return (event.charCode == 8 || event.charCode == 0 || event.charCode == 13) ? null : event.charCode >= 48 && event.charCode <= 57"/>
+						</div>
+						<div class="col-xs-3">
+							<input id="txtRequiredServiceLevel" type="number" min="1" class="input-small" />
+						</div>
+						<div class="col-xs-2">
+							<input id="txtTargetAnswerTimeInSecs" type="number" min="1" class="input-small"  onkeypress="return (event.charCode == 8 || event.charCode == 0 || event.charCode == 13) ? null : event.charCode >= 48 && event.charCode <= 57"/>
+						</div>
+						<div class="col-xs-3">
+							<input id="txtShrinkage"  type="number" min="1" class="input-small" />
+						</div>
+					</div>	
+					<div class="row">
+						<hr />
+					</div>				
+				</div>
+
+				<div class="row">
+					<div class="col-xs-4 infobox-container">
+						<div class="infobox infobox-green infobox-small infobox-dark">
+							<div class="infobox-progress">
+								<div id="divReqAgent" class="easy-pie-chart percentage" data-percent="0" data-size="39">
+									<span class="percent" id="sReqAgent">0</span>
+								</div>
+							</div>
+
+							<div class="infobox-data">
+								<div class="infobox-content">Required</div>
+								<div class="infobox-content">Agent's</div>
+							</div>
+						</div>
+					</div>
+					<div class="col-xs-4 infobox-container">
+						<div class="infobox infobox-blue infobox-small infobox-dark">
+							<div class="infobox-progress">
+								<div id="divSL" class="easy-pie-chart percentage" data-percent="0" data-size="39">
+									<span id="sSL" class="percent">0</span>
+								</div>
+							</div>
+
+							<div class="infobox-data">
+								<div class="infobox-content">Service</div>
+								<div class="infobox-content">Level %</div>
+							</div>
+						</div>
+					</div>
+					<div class="col-xs-4 infobox-container">
+						<div class="infobox infobox-pink1 infobox-small infobox-dark">
+							<div class="infobox-progress">
+								<div id="divCallToWait" class="easy-pie-chart percentage" data-percent="0" data-size="39">
+									<span id="sCallToWait" class="percent">0</span>
+								</div>
+							</div>
+
+							<div class="infobox-data">
+								<div class="infobox-content">Call to</div>
+								<div class="infobox-content">Wait %</div>
+							</div>
+						</div>
+					</div>
+					
+				</div>
+				<div class="space-6"></div>
+				<div class="row">
+					<div class="col-xs-4 infobox-container">
+						<div class="infobox infobox-orange2 infobox-small infobox-dark">
+							<div class="infobox-progress">
+								<div id="divASA" class="easy-pie-chart percentage" data-percent="0" data-size="39">
+									<span id="sASA" class="percent">0</span>
+								</div>
+							</div>
+
+							<div class="infobox-data">
+								<div class="infobox-content">ASA </div>
+								<div class="infobox-content">%</div>
+							</div>
+						</div>
+					</div>
+					<div class="col-xs-4 infobox-container">
+						<div class="infobox infobox-violet1 infobox-small infobox-dark">
+							<div class="infobox-progress">
+								<div id="divIA" class="easy-pie-chart percentage" data-percent="0" data-size="39">
+									<span id="sIA" class="percent">0</span>
+								</div>
+							</div>
+
+							<div class="infobox-data">
+								<div class="infobox-content">Immediate</div>
+								<div class="infobox-content">Answer %</div>
+							</div>
+						</div>
+					</div>
+					<div class="col-xs-4 infobox-container">
+						<div class="infobox infobox-aqua1 infobox-small infobox-dark">
+							<div class="infobox-progress">
+								<div id="divOccupancy" class="easy-pie-chart percentage" data-percent="0" data-size="39">
+									<span id="sOccupancy" class="percent">0</span>
+								</div>
+							</div>
+
+							<div class="infobox-data">
+								<div class="infobox-content">Occupancy</div>
+								<div class="infobox-content">%</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="modal-footer">
+				<button id="btnCompute" class="btn btn-sm btn-primary">
+					<i class="ace-icon fa fa-check"></i>
+					Compute
+				</button>
+				<button id="btnClear" class="btn btn-sm">
+					Clear
+				</button>
+				<button type="button" class="btn btn-sm" data-dismiss="modal" style="display:none;">Close</button>
+			</div>
+		</div>
+
+	</div>
+</div>

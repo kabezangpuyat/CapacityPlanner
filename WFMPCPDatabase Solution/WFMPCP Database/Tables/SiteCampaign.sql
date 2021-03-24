@@ -1,0 +1,7 @@
+﻿CREATE TABLE [dbo].[SiteCampaign]
+(
+	[ID] BIGINT NOT NULL IDENTITY(1,1) CONSTRAINT [PK_SiteCampaign_ID] PRIMARY KEY([ID]), 
+	[SiteID] BIGINT NOT NULL , 
+    [CampaignID] BIGINT NOT NULL,
+	[Active] BIT  NOT NULL CONSTRAINT [DF_SiteCampaign_Active] DEFAULT(1)
+)
